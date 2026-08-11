@@ -2,6 +2,8 @@
 function sampleReceiptData(){
   return {
     storeName:"TURBOFLOW",
+    cnpj:"61.096.705/0001-00",
+    source:"iFood",
     orderId:"9499",
     customer:"João Silva",
     address:"Rua Exemplo, 123 - Centro",
@@ -388,8 +390,33 @@ function normalizeReceiptOrder(order){
     order?.totalAmount ||
     mappedItems.reduce((sum,it)=>sum + Number(it.totalPrice || 0),0);
 
+  const merchantCnpj =
+    order?.merchant?.cnpj ||
+    order?.merchant?.document ||
+    order?.merchant?.documentNumber ||
+    order?.merchantCnpj ||
+    order?.merchantDocument ||
+    "";
+
+  const orderSourceRaw =
+    order?.source ||
+    order?.platform ||
+    order?.provider ||
+    order?.channel ||
+    order?.salesChannel ||
+    order?.app ||
+    "iFood";
+
+  const orderSourceText = String(orderSourceRaw || "iFood");
+  const orderSource =
+    /99/i.test(orderSourceText) ? "99Food" :
+    /ifood/i.test(orderSourceText) ? "iFood" :
+    orderSourceText;
+
   return {
     storeName: order?.merchant?.name || order?.merchantName || "TURBOFLOW",
+    cnpj: merchantCnpj,
+    source: orderSource,
     orderId: String(displayId).replace(/^#/,""),
     customer,
     address: fullAddress || "Retirada / endereço não informado",
@@ -461,7 +488,9 @@ function buildReceiptHtml(data, s){
   return `
     <div class="r-topline"></div>
     <div class="r-brand">TURBOFLOW</div>
+    <div class="r-source">${tfEscape(data.source || "iFood")}</div>
     <div class="r-subtitle">PEDIDO RECEBIDO</div>
+    ${s.showCnpj && data.cnpj ? `<div class="r-cnpj"><strong>CNPJ:</strong> ${tfEscape(data.cnpj)}</div>` : ""}
     <div class="r-topline"></div>
 
     ${orderBlock}
@@ -519,7 +548,11 @@ function receiptToPlainText(data, s){
   const lines = [];
   lines.push(sep);
   lines.push(centerText("TURBOFLOW", width));
+  lines.push(centerText(data.source || "iFood", width));
   lines.push(centerText("PEDIDO RECEBIDO", width));
+  if(s.showCnpj && data.cnpj){
+    lines.push(centerText(`CNPJ: ${data.cnpj}`, width));
+  }
   lines.push(sep);
 
   if(s.showOrderId !== false){

@@ -167,3 +167,10 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
   `/downloads/TurboFlow-Assistente-Setup.exe`
 - O cliente recebe somente o instalador final.
 - Código-fonte do Assistente não é exposto pelo site.
+
+
+## v1.1.6 — CNPJ + acentuação
+- Mostrar CNPJ agora afeta prévia e impressão real.
+- CNPJ é lido dos dados do merchant quando disponível.
+- Prévia de teste inclui CNPJ.
+- Compatível com Assistente v1.4 para acentos/cedilha.

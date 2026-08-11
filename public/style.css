@@ -471,3 +471,17 @@ input[type="checkbox"]{
 .paper-58 .r-total-row{font-size:1.25em}
 .paper-58 .r-meta{font-size:.92em}
 .paper-58 .r-product-name{font-size:1em}
+
+/* v1.1.7 — origem do pedido */
+.r-brand{
+  font-size:2.15em !important;
+  line-height:1;
+  font-weight:900;
+}
+.r-source{
+  text-align:center;
+  font-size:1.28em;
+  font-weight:900;
+  margin-top:5px;
+  margin-bottom:2px;
+}

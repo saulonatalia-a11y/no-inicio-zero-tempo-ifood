@@ -620,7 +620,7 @@ async function handleApi(req, res, url) {
     const nextPrint = {
       paperWidth: ["58","80"].includes(String(body.paperWidth)) ? String(body.paperWidth) : "80",
       fontSize: Math.max(8, Math.min(24, Number(body.fontSize || 12))),
-      showCnpj: Boolean(body.showCnpj),
+      showCnpj: body.showCnpj === true,
       showCategories: Boolean(body.showCategories),
       showDescription: Boolean(body.showDescription),
       showAddonGroupTitle: Boolean(body.showAddonGroupTitle),
