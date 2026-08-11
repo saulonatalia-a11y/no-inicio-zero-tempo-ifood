@@ -180,3 +180,11 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 - Papel 58/80 mm enviado explicitamente ao Assistente.
 - Fonte do pedido e fonte da empresa são independentes.
 - O tamanho salvo é o mesmo enviado ao Assistente.
+
+
+## v2.2.1 — Webhook 99Food
+- Nova rota pública: `/webhook/99food`
+- `POST /webhook/99food` recebe e registra eventos da 99Food.
+- `GET /webhook/99food` e `/webhook/99food/health` retornam status de prontidão.
+- O webhook e o fluxo do iFood não foram alterados.
+- Autenticação/assinatura específica da 99Food será adicionada depois que o aplicativo fornecer as credenciais oficiais.

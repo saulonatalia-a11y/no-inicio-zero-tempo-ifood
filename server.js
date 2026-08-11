@@ -212,6 +212,7 @@ async function parseResponse(res) {
 
 
 const processedWebhookEvents = new Map();
+const processed99FoodWebhookEvents = new Map();
 
 function cleanupWebhookIds() {
   const cutoff = Date.now() - (8 * 60 * 60 * 1000);
@@ -289,6 +290,85 @@ async function handleWebhook(req, res) {
       } catch (err) {
         log("error", `Erro no processamento do webhook: ${err.message}`, event);
       }
+    }
+  });
+}
+
+
+function cleanup99FoodWebhookIds() {
+  const cutoff = Date.now() - (8 * 60 * 60 * 1000);
+  for (const [id, ts] of processed99FoodWebhookEvents.entries()) {
+    if (ts < cutoff) processed99FoodWebhookEvents.delete(id);
+  }
+}
+
+async function handle99FoodWebhook(req, res) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const rawBody = Buffer.concat(chunks);
+
+  let payload = {};
+  if (rawBody.length) {
+    try {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      log("99food-error", "Webhook 99Food recebeu JSON inválido.");
+      return json(res, 400, { ok: false, error: "invalid_json" });
+    }
+  }
+
+  // Resposta rápida para a plataforma.
+  json(res, 200, { ok: true });
+
+  // Processamento inicial: registrar com segurança sem alterar o fluxo do iFood.
+  setImmediate(() => {
+    try {
+      cleanup99FoodWebhookIds();
+
+      const events = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.events) ? payload.events : [payload]);
+
+      for (const event of events) {
+        const eventId =
+          event?.id ||
+          event?.eventId ||
+          event?.event_id ||
+          event?.requestId ||
+          event?.request_id ||
+          null;
+
+        if (eventId && processed99FoodWebhookEvents.has(String(eventId))) {
+          log("99food-webhook", `Evento duplicado ignorado: ${eventId}`);
+          continue;
+        }
+
+        if (eventId) {
+          processed99FoodWebhookEvents.set(String(eventId), Date.now());
+        }
+
+        const eventType =
+          event?.type ||
+          event?.eventType ||
+          event?.event_type ||
+          event?.code ||
+          event?.status ||
+          "EVENTO";
+
+        const orderId =
+          event?.orderId ||
+          event?.order_id ||
+          event?.order?.id ||
+          "";
+
+        log(
+          "99food-webhook",
+          `Evento recebido: ${String(eventType)} ${String(orderId)}`.trim(),
+          event
+        );
+      }
+    } catch (err) {
+      log("99food-error", `Erro ao registrar webhook: ${err.message}`);
     }
   });
 }
@@ -584,7 +664,8 @@ async function handleApi(req, res, url) {
       printSettings: settings.printSettings,
       pollIntervalMs: POLL_INTERVAL_MS,
       transport: "webhook",
-      webhookPath: "/webhook/ifood"
+      webhookPath: "/webhook/ifood",
+      webhook99FoodPath: "/webhook/99food"
     });
   }
 
@@ -718,6 +799,28 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
+    if (req.method === "POST" && url.pathname === "/webhook/99food") {
+      return await handle99FoodWebhook(req, res);
+    }
+
+    if (req.method === "GET" && url.pathname === "/webhook/99food") {
+      return json(res, 200, {
+        ok: true,
+        service: "TurboFlow",
+        webhook: "/webhook/99food",
+        status: "ready"
+      });
+    }
+
+    if (req.method === "GET" && url.pathname === "/webhook/99food/health") {
+      return json(res, 200, {
+        ok: true,
+        service: "TurboFlow",
+        webhook: "/webhook/99food",
+        status: "ready"
+      });
+    }
+
     if (req.method === "POST" && url.pathname === "/webhook/ifood") {
       return await handleWebhook(req, res);
     }
@@ -741,6 +844,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`TurboFlow: http://localhost:${PORT}`);
   console.log(`Webhook local: http://localhost:${PORT}/webhook/ifood`);
+  console.log(`Webhook 99Food: http://localhost:${PORT}/webhook/99food`);
   console.log(`Polling de contingência a cada ${Math.round(POLL_INTERVAL_MS / 60000)} min`);
   console.log(`Aguardando URL pública HTTPS para ativar o webhook no portal iFood...`);
   setTimeout(pollEvents, 1500);
