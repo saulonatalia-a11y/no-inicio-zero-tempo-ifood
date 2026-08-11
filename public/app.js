@@ -297,6 +297,7 @@ async function printThroughAgent(data, settingsOverride = null){
         text,
         copies:Number(s.copies || 1),
         fontSize:Number(s.fontSize || 12),
+        companyFontSize:Number(s.companyFontSize || 28),
         paperWidth:String(s.paperWidth || "80")
       })
     });
@@ -651,7 +652,8 @@ async function loadPrintingPage(){
   const s = await api("/api/print-settings");
   currentPrintSettings = s;
   $("#printPaperWidth").value = s.paperWidth || "80";
-  $("#printFontSize").value = s.fontSize || 12;
+  $("#printFontSize").value = Number(s.fontSize || 12);
+  if($("#printCompanyFontSize")) $("#printCompanyFontSize").value = Number(s.companyFontSize || 28);
   $("#printShowCnpj").checked = !!s.showCnpj;
   $("#printShowCategories").checked = !!s.showCategories;
   $("#printShowDescription").checked = !!s.showDescription;
@@ -675,6 +677,7 @@ function collectPrintSettings(){
   return {
     paperWidth: $("#printPaperWidth").value,
     fontSize: Number($("#printFontSize").value || 12),
+    companyFontSize: Number($("#printCompanyFontSize")?.value || 28),
     showCnpj: $("#printShowCnpj").checked,
     showCategories: $("#printShowCategories").checked,
     showDescription: $("#printShowDescription").checked,
@@ -705,9 +708,11 @@ function renderReceiptPreview(){
   preview.classList.toggle("paper-80", s.paperWidth==="80");
   preview.style.fontSize = `${s.fontSize}px`;
   preview.innerHTML = buildReceiptHtml(sampleReceiptData(), s);
+  const brand = preview.querySelector(".r-brand");
+  if(brand) brand.style.fontSize = `${Number(s.companyFontSize || 28)}px`;
 }
 
-["printPaperWidth","printFontSize","printShowCnpj","printShowCategories","printShowDescription","printShowAddonGroupTitle","printShowCustomer","printShowAddress","printShowPayment","printShowOrderId"].forEach(id=>{
+["printPaperWidth","printFontSize","printCompanyFontSize","printShowCnpj","printShowCategories","printShowDescription","printShowAddonGroupTitle","printShowCustomer","printShowAddress","printShowPayment","printShowOrderId"].forEach(id=>{
   document.addEventListener("change", e=>{ if(e.target?.id===id) renderReceiptPreview(); });
   document.addEventListener("input", e=>{ if(e.target?.id===id) renderReceiptPreview(); });
 });
@@ -724,7 +729,8 @@ $("#savePrintSettings")?.addEventListener("click", async()=>{
       body:JSON.stringify(s)
     });
     if($("#printFontSize")) $("#printFontSize").value = Number(currentPrintSettings.fontSize || s.fontSize || 12);
-    alert(`Configuração salva. Fonte da impressão: ${Number(currentPrintSettings.fontSize || s.fontSize || 12)}`);
+    if($("#printCompanyFontSize")) $("#printCompanyFontSize").value = Number(currentPrintSettings.companyFontSize || s.companyFontSize || 28);
+    alert(`Configuração salva. Fonte do pedido: ${Number(currentPrintSettings.fontSize || s.fontSize || 12)} | Empresa: ${Number(currentPrintSettings.companyFontSize || s.companyFontSize || 28)}`);
   }catch(e){ alert(e.message); }
 });
 
@@ -874,13 +880,15 @@ function refreshReceiptPreviewFromControls(){
     preview.classList.toggle("paper-80", s.paperWidth === "80");
     preview.style.fontSize = `${Number(s.fontSize || 15)}px`;
     preview.innerHTML = buildReceiptHtml(data, s);
+    const brand = preview.querySelector(".r-brand");
+    if(brand) brand.style.fontSize = `${Number(s.companyFontSize || 28)}px`;
   }catch(e){}
 }
 
 [
   "printShowCnpj","printShowCategories","printShowDescription","printShowAddonTitles",
   "printShowCustomer","printShowAddress","printShowPayment","printShowTotal","printShowOrderId",
-  "printPaperWidth","printFontSize"
+  "printPaperWidth","printFontSize","printCompanyFontSize"
 ].forEach(id=>{
   document.getElementById(id)?.addEventListener("change", refreshReceiptPreviewFromControls);
   document.getElementById(id)?.addEventListener("input", refreshReceiptPreviewFromControls);
