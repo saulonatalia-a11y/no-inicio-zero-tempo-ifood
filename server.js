@@ -1,3 +1,4 @@
+// TurboFlow v1.1.1 - fix readJson
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -5,6 +6,47 @@ const { URL } = require("url");
 const crypto = require("crypto");
 
 loadEnv();
+
+async function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    let settled = false;
+
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
+
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 2 * 1024 * 1024) {
+        fail(new Error("Corpo da requisição muito grande"));
+        try { req.destroy(); } catch {}
+      }
+    });
+
+    req.on("end", () => {
+      if (settled) return;
+      settled = true;
+
+      if (!body.trim()) {
+        resolve({});
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        reject(new Error("JSON inválido"));
+      }
+    });
+
+    req.on("error", fail);
+  });
+}
+
+
 
 const PORT = Number(process.env.PORT || 3000);
 const API = "https://merchant-api.ifood.com.br";

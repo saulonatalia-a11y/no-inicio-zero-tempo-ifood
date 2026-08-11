@@ -144,3 +144,8 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 - Impressão de teste direto pelo Assistente
 - Preparado para impressão automática no aceite
 - Agente local usa http://127.0.0.1:17891
+
+
+## v1.1.1
+- Corrigido erro `readJson is not defined` nas rotas POST de configuração/impressão.
+- Sem alterações no Webhook ou fluxo de pedidos.
