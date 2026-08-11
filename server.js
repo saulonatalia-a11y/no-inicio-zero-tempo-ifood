@@ -19,7 +19,25 @@ function loadSettings() {
     autoStartPreparation: true,
     autoReady: true,
     acceptDelaySeconds: 5,
-    readyDelaySeconds: 10
+    readyDelaySeconds: 10,
+    printSettings: {
+      paperWidth: "80",
+      fontSize: 12,
+      showCnpj: false,
+      showCategories: true,
+      showDescription: false,
+      showAddonGroupTitle: false,
+      showCustomer: true,
+      showAddress: true,
+      showPayment: true,
+      showOrderId: true,
+      showPhone: false,
+      groupIdentical: "separate",
+      useAssistant: false,
+      autoPrint: false,
+      selectedPrinter: "",
+      copies: 1
+    }
   };
   try {
     if (!fs.existsSync(SETTINGS_FILE)) {
@@ -42,6 +60,24 @@ let settings = loadSettings();
 settings.autoReady = settings.autoReady ?? settings.autoDispatch ?? true;
 settings.acceptDelaySeconds = Number(settings.acceptDelaySeconds ?? 5);
 settings.readyDelaySeconds = Number(settings.readyDelaySeconds ?? settings.dispatchDelaySeconds ?? 10);
+settings.printSettings = settings.printSettings || {
+  paperWidth: "80",
+  fontSize: 12,
+  showCnpj: false,
+  showCategories: true,
+  showDescription: false,
+  showAddonGroupTitle: false,
+  showCustomer: true,
+  showAddress: true,
+  showPayment: true,
+  showOrderId: true,
+  showPhone: false,
+  groupIdentical: "separate",
+  useAssistant: false,
+  autoPrint: false,
+  selectedPrinter: "",
+  copies: 1
+};
 
 let tokenCache = { accessToken: null, expiresAt: 0 };
 let orders = new Map();
@@ -259,6 +295,7 @@ async function processEvent(event) {
     const normalized = normalizeOrder(detail);
     normalized.status = "PLACED";
     normalized.stage = "NEW";
+    normalized.receivedAt = normalized.receivedAt || new Date().toISOString();
     orders.set(orderId, normalized);
 
     if (settings.autoConfirm && !autoConfirmDone.has(orderId) && !confirmTimers.has(orderId)) {
@@ -272,6 +309,7 @@ async function processEvent(event) {
     const current = orders.get(orderId) || { id: orderId };
     current.status = "CONFIRMED";
     current.stage = "PREPARATION";
+    current.preparationStartedAt = current.preparationStartedAt || new Date().toISOString();
     current.updatedAt = new Date().toISOString();
     current.confirmDueAt = null;
     orders.set(orderId, current);
@@ -307,6 +345,7 @@ async function processEvent(event) {
     const current = orders.get(orderId) || { id: orderId };
     current.status = "READY_TO_PICKUP";
     current.stage = "READY";
+    current.readyAt = current.readyAt || new Date().toISOString();
     current.readyDueAt = null;
     current.updatedAt = new Date().toISOString();
     orders.set(orderId, current);
@@ -319,6 +358,7 @@ async function processEvent(event) {
     const current = orders.get(orderId) || { id: orderId };
     current.status = "DISPATCHED";
     current.stage = "DELIVERY";
+    current.dispatchedAt = current.dispatchedAt || new Date().toISOString();
     current.updatedAt = new Date().toISOString();
     orders.set(orderId, current);
     return;
@@ -333,6 +373,7 @@ async function processEvent(event) {
   } else if (["CON", "CONCLUDED", "COMPLETED"].includes(code) || code.includes("CONCLUD") || code.includes("COMPLET")) {
     current.status = "CONCLUDED";
     current.stage = "FINISHED";
+    current.finishedAt = current.finishedAt || new Date().toISOString();
     current.isClosed = true;
   } else {
     current.status = code || current.status || "UPDATED";
@@ -355,6 +396,7 @@ function normalizeOrder(o) {
     orderType: o.orderType,
     category: o.category,
     createdAt: o.createdAt,
+    createdAt: order.createdAt || order.createdDate || order.orderTiming || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     merchant: o.merchant,
     customer: o.customer,
@@ -425,6 +467,7 @@ function scheduleAutoReady(id) {
       const updated = orders.get(id) || { id };
       updated.status = "READY_REQUESTED";
       updated.stage = "READY";
+      updated.readyAt = updated.readyAt || new Date().toISOString();
       updated.readyDueAt = null;
       updated.updatedAt = new Date().toISOString();
       orders.set(id, updated);
@@ -492,6 +535,7 @@ async function handleApi(req, res, url) {
       autoReady: settings.autoReady,
       acceptDelaySeconds: settings.acceptDelaySeconds,
       readyDelaySeconds: settings.readyDelaySeconds,
+      printSettings: settings.printSettings,
       pollIntervalMs: POLL_INTERVAL_MS,
       transport: "webhook",
       webhookPath: "/webhook/ifood"
@@ -520,6 +564,37 @@ async function handleApi(req, res, url) {
 
     log("settings", `Configurações: aceite ${next.acceptDelaySeconds}s, pronto ${next.readyDelaySeconds}s.`);
     return json(res, 200, next);
+  }
+
+  
+  if (req.method === "GET" && url.pathname === "/api/print-settings") {
+    return json(res, 200, settings.printSettings || {});
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/print-settings") {
+    const body = await readJson(req);
+    const nextPrint = {
+      paperWidth: ["58","80"].includes(String(body.paperWidth)) ? String(body.paperWidth) : "80",
+      fontSize: Math.max(8, Math.min(24, Number(body.fontSize || 12))),
+      showCnpj: Boolean(body.showCnpj),
+      showCategories: Boolean(body.showCategories),
+      showDescription: Boolean(body.showDescription),
+      showAddonGroupTitle: Boolean(body.showAddonGroupTitle),
+      showCustomer: Boolean(body.showCustomer),
+      showAddress: Boolean(body.showAddress),
+      showPayment: Boolean(body.showPayment),
+      showOrderId: Boolean(body.showOrderId),
+      showPhone: Boolean(body.showPhone),
+      groupIdentical: ["keep","multiply","separate"].includes(String(body.groupIdentical)) ? String(body.groupIdentical) : "separate",
+      useAssistant: Boolean(body.useAssistant),
+      autoPrint: Boolean(body.autoPrint),
+      selectedPrinter: String(body.selectedPrinter || ""),
+      copies: Math.max(1, Math.min(5, Number(body.copies || 1)))
+    };
+    settings.printSettings = nextPrint;
+    saveSettings(settings);
+    log("settings", `Configuração de impressão atualizada: ${nextPrint.paperWidth}mm, fonte ${nextPrint.fontSize}px.`);
+    return json(res, 200, nextPrint);
   }
 
   if (req.method === "GET" && url.pathname === "/api/orders") {

@@ -1,4 +1,4 @@
-# TurboFlow — iFood (v0.7)
+# TurboFlow — iFood (v1.0)
 
 Primeira versão local do painel de integração com a Order API do iFood.
 
@@ -110,3 +110,37 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 - Menu lateral escuro com destaque amarelo
 - Botões e estados ajustados para a nova identidade visual
 - Mantém toda a lógica da integração iFood da v0.6
+
+
+## v0.8 — Cronômetros por etapa
+- Novo pedido: mostra contagem até o aceite automático
+- Em preparo: mostra contagem até ficar pronto
+- Pronto / despacho: mostra há quanto tempo está aguardando entregador
+- Em entrega: mostra há quanto tempo saiu para entrega
+- Finalizados: mostra o tempo total do pedido
+- Botão Sincronizar renomeado para Sincronizar emergência
+- Mantém Webhook como fluxo principal
+
+
+## v0.9 — Impressão
+- Nova área Impressão no menu
+- Papel 58 mm ou 80 mm
+- Tamanho de fonte configurável
+- Campos opcionais da notinha
+- Prévia em tempo real
+- Configuração de agrupamento de itens
+- Botão Imprimir teste
+- Impressão usa o diálogo do Windows/Chrome nesta fase
+- Impressão silenciosa/seleção automática de impressora ficará para o futuro Assistente TurboFlow para Windows
+
+
+## v1.0 — TurboFlow Print Agent
+- Botão Baixar Assistente dentro da aba Impressão
+- TurboFlow Print Agent para Windows incluído no próprio projeto
+- Status Aberto/Fechado
+- Detecta impressoras instaladas no Windows
+- Seleção de impressora
+- Quantidade de vias
+- Impressão de teste direto pelo Assistente
+- Preparado para impressão automática no aceite
+- Agente local usa http://127.0.0.1:17891

@@ -3,5 +3,23 @@
   "autoStartPreparation": true,
   "autoReady": true,
   "acceptDelaySeconds": 5,
-  "readyDelaySeconds": 10
+  "readyDelaySeconds": 10,
+  "printSettings": {
+    "paperWidth": "80",
+    "fontSize": 12,
+    "showCnpj": false,
+    "showCategories": true,
+    "showDescription": false,
+    "showAddonGroupTitle": false,
+    "showCustomer": true,
+    "showAddress": true,
+    "showPayment": true,
+    "showOrderId": true,
+    "showPhone": false,
+    "groupIdentical": "separate",
+    "useAssistant": false,
+    "autoPrint": false,
+    "selectedPrinter": "",
+    "copies": 1
+  }
 }

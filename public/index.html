@@ -28,6 +28,7 @@
       <button class="nav-item" data-view="history">Histórico</button>
       <button class="nav-item" data-view="integrations">Integrações</button>
       <button class="nav-item" data-view="settings">Configurações</button>
+      <button class="nav-item" data-view="printing">Impressão</button>
       <button class="nav-item" data-view="logs">Logs</button>
     </nav>
 
@@ -50,7 +51,7 @@
         <h1>Gestor de pedidos</h1>
       </div>
       <div class="top-actions">
-        <button id="pollBtn" class="secondary">Sincronizar</button>
+        <button id="pollBtn" class="secondary">Sincronizar emergência</button>
         <button id="settingsBtn">Automação</button>
       </div>
     </header>
@@ -151,6 +152,144 @@
           <div class="input-with-suffix"><input id="pageReadyDelaySeconds" type="number" min="0" max="3600" value="10"><b>segundos</b></div>
         </label>
         <div class="settings-actions"><button id="pageSaveSettings">Salvar configurações</button></div>
+      </div>
+    </section>
+
+    
+    <section id="view-printing" class="view-panel hidden">
+      <div class="page-card print-config-card">
+        <div class="print-config-head">
+          <div>
+            <h2>Configuração da notinha</h2>
+            <p class="helper">Defina o que aparece nas notas impressas dos pedidos.</p>
+          </div>
+          <button id="printTest" class="secondary">Imprimir teste</button>
+        </div>
+
+        
+        <div class="assistant-card">
+          <div class="assistant-header">
+            <div class="assistant-title">
+              <div class="assistant-icon">🖨️</div>
+              <div>
+                <strong>Assistente de Impressão</strong>
+                <span>Conecte o TurboFlow às impressoras instaladas no Windows.</span>
+              </div>
+            </div>
+            <div class="assistant-actions">
+              <a class="assistant-download" href="/downloads/TurboFlow-Print-Agent-Windows.zip" download>⬇ Baixar Assistente</a>
+              <button id="openAssistant" class="secondary">🖨 Abrir Assistente</button>
+            </div>
+          </div>
+
+          <div class="assistant-connection">
+            <div>
+              <strong>TurboFlow Print Agent</strong>
+              <span id="assistantStatusBadge" class="assistant-status closed">Fechado</span>
+              <small id="assistantStatusText">Instale e abra para o sistema falar com sua impressora.</small>
+            </div>
+            <button id="refreshAssistant" class="secondary">Atualizar conexão</button>
+          </div>
+
+          <label class="toggle-row assistant-toggle">
+            <div>
+              <strong>Usar o Assistente para impressão</strong>
+              <span>Permite que o TurboFlow imprima diretamente no computador.</span>
+            </div>
+            <input id="printUseAssistant" type="checkbox">
+          </label>
+
+          <label class="toggle-row assistant-toggle">
+            <div>
+              <strong>Impressão automática de pedidos</strong>
+              <span>Imprime automaticamente quando o pedido for aceito.</span>
+            </div>
+            <input id="printAutoPrint" type="checkbox">
+          </label>
+
+          <div class="printer-select-row">
+            <label class="field">
+              <span>Impressora instalada no Windows</span>
+              <select id="printSelectedPrinter">
+                <option value="">Abra o Assistente para carregar as impressoras</option>
+              </select>
+            </label>
+            <label class="field copies-field">
+              <span>Quantidade de vias</span>
+              <input id="printCopies" type="number" min="1" max="5" value="1">
+            </label>
+          </div>
+        </div>
+
+        <div class="print-layout">
+          <div class="print-options">
+            <label class="toggle-row">
+              <div><strong>Mostrar CNPJ da loja</strong><span>Imprime o CNPJ no cabeçalho da notinha.</span></div>
+              <input id="printShowCnpj" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <div><strong>Mostrar categoria dos produtos</strong><span>Agrupa os itens por categoria.</span></div>
+              <input id="printShowCategories" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <div><strong>Mostrar descrição dos produtos</strong><span>Inclui a descrição abaixo do nome do item.</span></div>
+              <input id="printShowDescription" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <div><strong>Mostrar título dos complementos</strong><span>Mostra o nome do grupo dos adicionais.</span></div>
+              <input id="printShowAddonGroupTitle" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <div><strong>Mostrar cliente</strong><span>Nome do cliente na notinha.</span></div>
+              <input id="printShowCustomer" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <div><strong>Mostrar endereço de entrega</strong><span>Endereço quando disponível.</span></div>
+              <input id="printShowAddress" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <div><strong>Mostrar pagamento</strong><span>Forma de pagamento e total.</span></div>
+              <input id="printShowPayment" type="checkbox">
+            </label>
+            <label class="toggle-row">
+              <div><strong>Mostrar número do pedido</strong><span>Exibe o ID/código do pedido.</span></div>
+              <input id="printShowOrderId" type="checkbox">
+            </label>
+
+            <div class="print-grid-fields">
+              <label class="field">
+                <span>Tamanho do papel</span>
+                <select id="printPaperWidth">
+                  <option value="58">58 mm</option>
+                  <option value="80">80 mm</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Tamanho da fonte</span>
+                <div class="input-with-suffix">
+                  <input id="printFontSize" type="number" min="8" max="24" value="12">
+                  <b>px</b>
+                </div>
+              </label>
+            </div>
+
+            <div class="print-group-block">
+              <strong>Quantidade de adicionais no produto</strong>
+              <label class="radio-row"><input type="radio" name="groupIdentical" value="keep"><div><b>Agrupar e manter a quantidade</b><span>Junta produtos iguais e mantém os adicionais como foram pedidos.</span></div></label>
+              <label class="radio-row"><input type="radio" name="groupIdentical" value="multiply"><div><b>Agrupar e multiplicar adicionais</b><span>Junta produtos iguais e multiplica a quantidade dos adicionais.</span></div></label>
+              <label class="radio-row"><input type="radio" name="groupIdentical" value="separate"><div><b>Exibir cada produto separadamente</b><span>Lista um a um, sem agrupar.</span></div></label>
+            </div>
+
+            <div class="settings-actions">
+              <button id="savePrintSettings">Salvar impressão</button>
+            </div>
+          </div>
+
+          <aside class="print-preview-box">
+            <span class="preview-title">PRÉVIA DA NOTINHA</span>
+            <div id="receiptPreview" class="receipt-preview paper-80"></div>
+          </aside>
+        </div>
       </div>
     </section>
 
