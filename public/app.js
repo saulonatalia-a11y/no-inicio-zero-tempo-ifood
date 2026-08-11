@@ -429,19 +429,43 @@ function buildReceiptHtml(data, s){
     `;
   }).join("");
 
+  const customerBlock = s.showCustomer !== false
+    ? `<div class="r-meta"><strong>CLIENTE:</strong> <span>${tfEscape(data.customer)}</span></div>` : "";
+
+  const addressBlock = s.showAddress !== false
+    ? `
+      <div class="r-meta"><strong>ENTREGA:</strong> <span>${tfEscape(data.address)}</span></div>
+      ${data.neighborhood ? `<div class="r-meta"><strong>BAIRRO:</strong> <span>${tfEscape(data.neighborhood)}</span></div>` : ""}
+      ${data.reference ? `<div class="r-meta"><strong>REFERÊNCIA:</strong> <span>${tfEscape(data.reference)}</span></div>` : ""}
+    ` : "";
+
+  const orderBlock = s.showOrderId !== false
+    ? `<div class="r-order-number">#${tfEscape(data.orderId)}</div>` : "";
+
+  const paymentBlock = s.showPayment !== false
+    ? `
+      <div class="r-topline"></div>
+      <div class="r-section-label">PAGAMENTO</div>
+      <div class="r-payment">${tfEscape(data.payment || "Pagamento")}</div>
+    ` : "";
+
+  const totalBlock = s.showTotal !== false
+    ? `
+      <div class="r-topline"></div>
+      <div class="r-total-row">
+        <strong>TOTAL:</strong>
+        <strong>${tfMoney(data.total)}</strong>
+      </div>
+    ` : "";
+
   return `
     <div class="r-topline"></div>
     <div class="r-brand">TURBOFLOW</div>
     <div class="r-subtitle">PEDIDO RECEBIDO</div>
     <div class="r-topline"></div>
 
-    <div class="r-order-number">#${tfEscape(data.orderId)}</div>
-
-    <div class="r-topline"></div>
-    <div class="r-meta"><strong>CLIENTE:</strong> <span>${tfEscape(data.customer)}</span></div>
-    <div class="r-meta"><strong>ENTREGA:</strong> <span>${tfEscape(data.address)}</span></div>
-    ${data.neighborhood ? `<div class="r-meta"><strong>BAIRRO:</strong> <span>${tfEscape(data.neighborhood)}</span></div>` : ""}
-    ${data.reference ? `<div class="r-meta"><strong>REFERÊNCIA:</strong> <span>${tfEscape(data.reference)}</span></div>` : ""}
+    ${orderBlock}
+    ${(customerBlock || addressBlock) ? `<div class="r-topline"></div>${customerBlock}${addressBlock}` : ""}
 
     <div class="r-topline"></div>
     <div class="r-section-title">ITENS DO PEDIDO</div>
@@ -449,15 +473,8 @@ function buildReceiptHtml(data, s){
 
     ${items}
 
-    <div class="r-topline"></div>
-    <div class="r-section-label">PAGAMENTO</div>
-    <div class="r-payment">${tfEscape(data.payment || "Pagamento")}</div>
-
-    <div class="r-topline"></div>
-    <div class="r-total-row">
-      <strong>TOTAL:</strong>
-      <strong>${tfMoney(data.total)}</strong>
-    </div>
+    ${paymentBlock}
+    ${totalBlock}
     <div class="r-topline"></div>
   `;
 }
@@ -504,10 +521,13 @@ function receiptToPlainText(data, s){
   lines.push(centerText("TURBOFLOW", width));
   lines.push(centerText("PEDIDO RECEBIDO", width));
   lines.push(sep);
-  lines.push("");
-  lines.push(centerText(`#${data.orderId}`, width));
-  lines.push("");
-  lines.push(sep);
+
+  if(s.showOrderId !== false){
+    lines.push("");
+    lines.push(centerText(`#${data.orderId}`, width));
+    lines.push("");
+    lines.push(sep);
+  }
 
   const pushLabel = (label, value)=>{
     const prefix = `${label}: `;
@@ -523,12 +543,20 @@ function receiptToPlainText(data, s){
     }
   };
 
-  pushLabel("CLIENTE", data.customer);
-  pushLabel("ENTREGA", data.address);
-  if(data.neighborhood) pushLabel("BAIRRO", data.neighborhood);
-  if(data.reference) pushLabel("REFERENCIA", data.reference);
+  if(s.showCustomer !== false){
+    pushLabel("CLIENTE", data.customer);
+  }
 
-  lines.push(sep);
+  if(s.showAddress !== false){
+    pushLabel("ENTREGA", data.address);
+    if(data.neighborhood) pushLabel("BAIRRO", data.neighborhood);
+    if(data.reference) pushLabel("REFERENCIA", data.reference);
+  }
+
+  if(s.showCustomer !== false || s.showAddress !== false){
+    lines.push(sep);
+  }
+
   lines.push(centerText("ITENS DO PEDIDO", width));
   lines.push(sep);
 
@@ -563,16 +591,21 @@ function receiptToPlainText(data, s){
     lines.push(mini);
   }
 
-  lines.push("PAGAMENTO");
-  for(const l of wrapText(data.payment || "Pagamento", width)){
-    lines.push(l);
+  if(s.showPayment !== false){
+    lines.push("PAGAMENTO");
+    for(const l of wrapText(data.payment || "Pagamento", width)){
+      lines.push(l);
+    }
   }
 
-  lines.push(sep);
-  const totalText = tfMoney(data.total);
-  const label = "TOTAL:";
-  const spaces = Math.max(1, width - label.length - totalText.length);
-  lines.push(label + " ".repeat(spaces) + totalText);
+  if(s.showTotal !== false){
+    if(s.showPayment !== false) lines.push(sep);
+    const totalText = tfMoney(data.total);
+    const label = "TOTAL:";
+    const spaces = Math.max(1, width - label.length - totalText.length);
+    lines.push(label + " ".repeat(spaces) + totalText);
+  }
+
   lines.push(sep);
   lines.push("");
   lines.push("");
@@ -592,6 +625,7 @@ async function loadPrintingPage(){
   $("#printShowCustomer").checked = s.showCustomer !== false;
   $("#printShowAddress").checked = s.showAddress !== false;
   $("#printShowPayment").checked = s.showPayment !== false;
+  if($("#printShowTotal")) $("#printShowTotal").checked = s.showTotal !== false;
   $("#printShowOrderId").checked = s.showOrderId !== false;
   $("#printUseAssistant").checked = !!s.useAssistant;
   $("#printAutoPrint").checked = !!s.autoPrint;
@@ -614,6 +648,7 @@ function collectPrintSettings(){
     showCustomer: $("#printShowCustomer").checked,
     showAddress: $("#printShowAddress").checked,
     showPayment: $("#printShowPayment").checked,
+    showTotal: $("#printShowTotal")?.checked !== false,
     showOrderId: $("#printShowOrderId").checked,
     showPhone: false,
     groupIdentical: document.querySelector('input[name="groupIdentical"]:checked')?.value || "separate",
@@ -792,3 +827,26 @@ function escapeHtml(s){
 
 refresh();
 setInterval(refresh, 5000);
+
+
+function refreshReceiptPreviewFromControls(){
+  try{
+    const preview = $("#receiptPreview");
+    if(!preview) return;
+    const s = collectPrintSettings();
+    const data = sampleReceiptData();
+    preview.classList.toggle("paper-58", s.paperWidth === "58");
+    preview.classList.toggle("paper-80", s.paperWidth === "80");
+    preview.style.fontSize = `${Number(s.fontSize || 15)}px`;
+    preview.innerHTML = buildReceiptHtml(data, s);
+  }catch(e){}
+}
+
+[
+  "printShowCnpj","printShowCategories","printShowDescription","printShowAddonTitles",
+  "printShowCustomer","printShowAddress","printShowPayment","printShowTotal","printShowOrderId",
+  "printPaperWidth","printFontSize"
+].forEach(id=>{
+  document.getElementById(id)?.addEventListener("change", refreshReceiptPreviewFromControls);
+  document.getElementById(id)?.addEventListener("input", refreshReceiptPreviewFromControls);
+});

@@ -20,6 +20,7 @@
     "useAssistant": false,
     "autoPrint": false,
     "selectedPrinter": "",
-    "copies": 1
+    "copies": 1,
+    "showTotal": true
   }
 }
