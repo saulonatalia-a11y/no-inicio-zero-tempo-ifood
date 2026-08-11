@@ -730,7 +730,7 @@ $("#savePrintSettings")?.addEventListener("click", async()=>{
     });
     if($("#printFontSize")) $("#printFontSize").value = Number(currentPrintSettings.fontSize || s.fontSize || 12);
     if($("#printCompanyFontSize")) $("#printCompanyFontSize").value = Number(currentPrintSettings.companyFontSize || s.companyFontSize || 28);
-    alert(`Configuração salva. Fonte do pedido: ${Number(currentPrintSettings.fontSize || s.fontSize || 12)} | Empresa: ${Number(currentPrintSettings.companyFontSize || s.companyFontSize || 28)}`);
+    alert(`Configuração salva. Papel: ${currentPrintSettings.paperWidth || s.paperWidth}mm | Fonte do pedido: ${Number(currentPrintSettings.fontSize || s.fontSize || 12)} | Empresa: ${Number(currentPrintSettings.companyFontSize || s.companyFontSize || 28)}`);
   }catch(e){ alert(e.message); }
 });
 

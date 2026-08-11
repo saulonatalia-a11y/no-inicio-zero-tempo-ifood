@@ -174,3 +174,9 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 - CNPJ é lido dos dados do merchant quando disponível.
 - Prévia de teste inclui CNPJ.
 - Compatível com Assistente v1.4 para acentos/cedilha.
+
+
+## v2.0 — Impressão térmica real
+- Papel 58/80 mm enviado explicitamente ao Assistente.
+- Fonte do pedido e fonte da empresa são independentes.
+- O tamanho salvo é o mesmo enviado ao Assistente.

@@ -621,7 +621,8 @@ async function handleApi(req, res, url) {
     const body = await readJson(req);
     const nextPrint = {
       paperWidth: ["58","80"].includes(String(body.paperWidth)) ? String(body.paperWidth) : "80",
-      fontSize: Math.max(8, Math.min(24, Number(body.fontSize || 12))),
+      fontSize: Math.max(8, Math.min(30, Number(body.fontSize || 12))),
+      companyFontSize: Math.max(12, Math.min(48, Number(body.companyFontSize || 28))),
       companyFontSize: Math.max(12, Math.min(48, Number(body.companyFontSize || 28))),
       showCnpj: body.showCnpj === true,
       showCategories: Boolean(body.showCategories),
