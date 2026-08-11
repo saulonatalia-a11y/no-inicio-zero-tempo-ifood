@@ -65,6 +65,7 @@ function loadSettings() {
     printSettings: {
       paperWidth: "80",
       fontSize: 12,
+      companyFontSize: 28,
       showCnpj: false,
       showCategories: true,
       showDescription: false,
@@ -106,6 +107,7 @@ settings.readyDelaySeconds = Number(settings.readyDelaySeconds ?? settings.dispa
 settings.printSettings = settings.printSettings || {
   paperWidth: "80",
   fontSize: 12,
+  companyFontSize: 28,
   showCnpj: false,
   showCategories: true,
   showDescription: false,
@@ -620,6 +622,7 @@ async function handleApi(req, res, url) {
     const nextPrint = {
       paperWidth: ["58","80"].includes(String(body.paperWidth)) ? String(body.paperWidth) : "80",
       fontSize: Math.max(8, Math.min(24, Number(body.fontSize || 12))),
+      companyFontSize: Math.max(12, Math.min(48, Number(body.companyFontSize || 28))),
       showCnpj: body.showCnpj === true,
       showCategories: Boolean(body.showCategories),
       showDescription: Boolean(body.showDescription),
@@ -638,7 +641,7 @@ async function handleApi(req, res, url) {
     };
     settings.printSettings = nextPrint;
     saveSettings(settings);
-    log("settings", `Configuração de impressão atualizada: ${nextPrint.paperWidth}mm, fonte ${nextPrint.fontSize}px.`);
+    log("settings", `Configuração de impressão atualizada: ${nextPrint.paperWidth}mm, fonte ${nextPrint.fontSize}px, empresa ${nextPrint.companyFontSize}px.`);
     return json(res, 200, nextPrint);
   }
 
