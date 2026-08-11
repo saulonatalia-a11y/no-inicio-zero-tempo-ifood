@@ -420,32 +420,29 @@ $("#printTest")?.addEventListener("click", async()=>{
   const s = collectPrintSettings();
   const data = sampleReceiptData();
 
-  if(s.useAssistant && s.selectedPrinter){
-    try{
-      await printThroughAgent(data, s);
-      alert("Notinha de teste enviada para a impressora.");
-      return;
-    }catch(e){
-      alert(`Falha no Assistente: ${e.message}\n\nVou abrir a impressão normal do navegador.`);
-    }
+  const agentOnline = await refreshPrintAssistant(false);
+
+  if(!agentOnline){
+    alert("O TurboFlow Assistente não está conectado. Abra o ícone T no Windows e clique em Atualizar conexão.");
+    return;
   }
 
-  const w = window.open("", "_blank", "width=600,height=800");
-  const paperMm = s.paperWidth==="58" ? 58 : 80;
-  w.document.write(`<!doctype html><html><head><title>TurboFlow - Impressão teste</title>
-    <style>
-      @page{size:${paperMm}mm auto;margin:3mm}
-      body{font-family:Arial,sans-serif;width:${paperMm-6}mm;margin:0 auto;font-size:${s.fontSize}px;color:#000}
-      .r-store,.r-center{text-align:center}.r-store{font-weight:800;font-size:1.15em}
-      .r-sep{border-top:1px dashed #000;margin:8px 0}
-      .r-item,.r-total{display:flex;justify-content:space-between;gap:8px}
-      .r-item{margin:5px 0}.r-total{font-size:1.1em;margin-top:8px}
-      .r-cat{font-weight:800;margin-top:7px}.r-desc,.r-addon{font-size:.9em;margin-left:8px}
-      .r-line{margin:4px 0}
-    </style></head><body>${buildReceiptHtml(data,s)}</body></html>`);
-  w.document.close();
-  w.focus();
-  setTimeout(()=>w.print(),300);
+  if(!s.useAssistant){
+    alert("Ative a opção 'Usar o Assistente para impressão'.");
+    return;
+  }
+
+  if(!s.selectedPrinter){
+    alert("Selecione uma impressora instalada no Windows.");
+    return;
+  }
+
+  try{
+    await printThroughAgent(data, s);
+    alert("Notinha de teste enviada diretamente para a impressora.");
+  }catch(e){
+    alert(`Falha ao imprimir pelo TurboFlow Assistente: ${e.message}`);
+  }
 });
 
 function showView(name){
