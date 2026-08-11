@@ -1,4 +1,36 @@
 
+function sampleReceiptData(){
+  return {
+    storeName:"TURBOFLOW",
+    orderId:"9499",
+    customer:"João Silva",
+    address:"Rua Exemplo, 123 - Centro",
+    neighborhood:"Centro",
+    reference:"Próximo à padaria",
+    items:[
+      {
+        category:"HAMBÚRGUERES",
+        qty:1,
+        name:"Hambúrguer Turbo 2",
+        description:"",
+        addons:["1x Bacon","1x Maionese"],
+        observations:"Sem cebola"
+      },
+      {
+        category:"HAMBÚRGUERES",
+        qty:1,
+        name:"Combo Turbo 3",
+        description:"",
+        addons:["1x Cheddar","1x Refrigerante"],
+        observations:"Ponto da carne: ao ponto"
+      }
+    ],
+    payment:"Pago online",
+    total:21
+  };
+}
+
+
 const $ = s => document.querySelector(s);
 const pollBtn = $("#pollBtn");
 let currentSettings = null;
@@ -244,42 +276,7 @@ $("#openAssistant")?.addEventListener("click", async()=>{
   }
 });
 
-function receiptToPlainText(data, s){
-  const widthChars = s.paperWidth === "58" ? 32 : 48;
-  const sep = "-".repeat(widthChars);
-  const lines = [];
 
-  lines.push(data.storeName.toUpperCase());
-  if(s.showCnpj) lines.push(`CNPJ ${data.cnpj}`);
-  lines.push(sep);
-  if(s.showOrderId) lines.push(`PEDIDO ${data.orderId}`);
-  if(s.showCustomer) lines.push(`Cliente: ${data.customer}`);
-  if(s.showAddress) lines.push(`Entrega: ${data.address}`);
-  lines.push(sep);
-  lines.push("ITENS DO PEDIDO");
-
-  let lastCat = "";
-  for(const it of data.items || []){
-    if(s.showCategories && it.category !== lastCat){
-      lines.push("");
-      lines.push(String(it.category || "").toUpperCase());
-      lastCat = it.category;
-    }
-    lines.push(`${it.qty}x ${it.name}  ${money(it.price)}`);
-    if(s.showDescription && it.desc) lines.push(`  ${it.desc}`);
-    for(const addon of (it.addons || [])) lines.push(`  ${addon}`);
-  }
-
-  lines.push(sep);
-  if(s.showPayment){
-    lines.push("PAGAMENTO");
-    lines.push(data.payment || "");
-  }
-  lines.push(`TOTAL: ${money(data.total)}`);
-  lines.push("");
-  lines.push("");
-  return lines.join("\r\n");
-}
 
 async function printThroughAgent(data, settingsOverride = null){
   const s = settingsOverride || currentPrintSettings || collectPrintSettings();
@@ -293,7 +290,12 @@ async function printThroughAgent(data, settingsOverride = null){
     const res = await fetch(`${PRINT_AGENT}/print`, {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({printer:s.selectedPrinter, text})
+      body:JSON.stringify({
+        printer:s.selectedPrinter,
+        text,
+        copies:Number(s.copies || 1),
+        fontSize:Number(s.fontSize || 10)
+      })
     });
     const body = await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(body.error || "Falha ao imprimir.");
@@ -301,6 +303,282 @@ async function printThroughAgent(data, settingsOverride = null){
   return true;
 }
 
+
+
+function tfEscape(v){
+  return escapeHtml(String(v ?? ""));
+}
+
+function tfMoney(v){
+  const n = Number(v || 0);
+  return n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+}
+
+function normalizeReceiptOrder(order){
+  const customer =
+    order?.customer?.name ||
+    order?.customerName ||
+    order?.customer?.firstName ||
+    "Cliente";
+
+  const delivery = order?.delivery || order?.deliveryAddress || order?.shipping || {};
+  const addr = delivery?.deliveryAddress || delivery?.address || delivery || {};
+
+  const street = addr?.streetName || addr?.street || addr?.address || "";
+  const number = addr?.streetNumber || addr?.number || "";
+  const neighborhood = addr?.neighborhood || addr?.district || addr?.bairro || "";
+  const city = addr?.city || addr?.cityName || "";
+  const complement = addr?.complement || addr?.details || "";
+  const reference = addr?.reference || addr?.referencePoint || addr?.observations || "";
+
+  const fullAddress = [street, number].filter(Boolean).join(", ") +
+    (complement ? ` - ${complement}` : "") +
+    (city ? ` - ${city}` : "");
+
+  const displayId =
+    order?.displayId ||
+    order?.shortReference ||
+    order?.orderNumber ||
+    order?.id?.slice?.(0,8) ||
+    "0000";
+
+  const items = Array.isArray(order?.items) ? order.items : [];
+
+  const mappedItems = items.map((it)=>{
+    const addons = [];
+    const opts = it?.options || it?.garnishes || it?.subItems || it?.complements || [];
+    if(Array.isArray(opts)){
+      for(const op of opts){
+        const qty = Number(op?.quantity || op?.qty || 1);
+        const name = op?.name || op?.description || op?.title || "Adicional";
+        addons.push(`${qty}x ${name}`);
+      }
+    }
+
+    const observations =
+      it?.observations ||
+      it?.observation ||
+      it?.notes ||
+      it?.note ||
+      "";
+
+    return {
+      category: it?.category || it?.categoryName || "ITENS",
+      qty: Number(it?.quantity || it?.qty || 1),
+      name: it?.name || it?.description || "Produto",
+      unitPrice: Number(it?.unitPrice || it?.price || it?.totalPrice || 0),
+      totalPrice: Number(it?.totalPrice || it?.price || it?.unitPrice || 0),
+      description: it?.description && it?.description !== it?.name ? it.description : "",
+      addons,
+      observations
+    };
+  });
+
+  const paymentMethod =
+    order?.payments?.methods?.[0]?.method ||
+    order?.payments?.methods?.[0]?.type ||
+    order?.payment?.method ||
+    order?.paymentMethod ||
+    order?.payments?.prepaid ? "Pago online" : "Pagamento";
+
+  const total =
+    order?.total?.orderAmount ||
+    order?.total?.total ||
+    order?.orderTotal ||
+    order?.totalAmount ||
+    mappedItems.reduce((sum,it)=>sum + Number(it.totalPrice || 0),0);
+
+  return {
+    storeName: order?.merchant?.name || order?.merchantName || "TURBOFLOW",
+    orderId: String(displayId).replace(/^#/,""),
+    customer,
+    address: fullAddress || "Retirada / endereço não informado",
+    neighborhood,
+    reference,
+    items: mappedItems,
+    payment: paymentMethod,
+    total: Number(total || 0)
+  };
+}
+
+function buildReceiptHtml(data, s){
+  const items = (data.items || []).map((it, idx)=>{
+    const prev = data.items[idx-1];
+    const cat = s.showCategories && (!prev || prev.category !== it.category)
+      ? `<div class="r-category">${tfEscape(String(it.category || "ITENS").toUpperCase())}</div>` : "";
+
+    const desc = s.showDescription && it.description
+      ? `<div class="r-description">${tfEscape(it.description)}</div>` : "";
+
+    const addons = (it.addons || []).map(a=>
+      `<div class="r-addon">- ${tfEscape(a)}</div>`
+    ).join("");
+
+    const obs = it.observations
+      ? `<div class="r-item-note"><strong>OBS:</strong> ${tfEscape(it.observations)}</div>` : "";
+
+    return `
+      ${cat}
+      <div class="r-product">
+        <div class="r-product-name">${tfEscape(it.qty)}x ${tfEscape(String(it.name || "").toUpperCase())}</div>
+        ${addons}
+        ${desc}
+        ${obs}
+      </div>
+      <div class="r-mini-sep"></div>
+    `;
+  }).join("");
+
+  return `
+    <div class="r-topline"></div>
+    <div class="r-brand">TURBOFLOW</div>
+    <div class="r-subtitle">PEDIDO RECEBIDO</div>
+    <div class="r-topline"></div>
+
+    <div class="r-order-number">#${tfEscape(data.orderId)}</div>
+
+    <div class="r-topline"></div>
+    <div class="r-meta"><strong>CLIENTE:</strong> <span>${tfEscape(data.customer)}</span></div>
+    <div class="r-meta"><strong>ENTREGA:</strong> <span>${tfEscape(data.address)}</span></div>
+    ${data.neighborhood ? `<div class="r-meta"><strong>BAIRRO:</strong> <span>${tfEscape(data.neighborhood)}</span></div>` : ""}
+    ${data.reference ? `<div class="r-meta"><strong>REFERÊNCIA:</strong> <span>${tfEscape(data.reference)}</span></div>` : ""}
+
+    <div class="r-topline"></div>
+    <div class="r-section-title">ITENS DO PEDIDO</div>
+    <div class="r-topline"></div>
+
+    ${items}
+
+    <div class="r-topline"></div>
+    <div class="r-section-label">PAGAMENTO</div>
+    <div class="r-payment">${tfEscape(data.payment || "Pagamento")}</div>
+
+    <div class="r-topline"></div>
+    <div class="r-total-row">
+      <strong>TOTAL:</strong>
+      <strong>${tfMoney(data.total)}</strong>
+    </div>
+    <div class="r-topline"></div>
+  `;
+}
+
+function wrapText(text, width){
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const out = [];
+  let line = "";
+  for(const word of words){
+    const next = line ? `${line} ${word}` : word;
+    if(next.length <= width){
+      line = next;
+    }else{
+      if(line) out.push(line);
+      if(word.length > width){
+        let rest = word;
+        while(rest.length > width){
+          out.push(rest.slice(0,width));
+          rest = rest.slice(width);
+        }
+        line = rest;
+      }else{
+        line = word;
+      }
+    }
+  }
+  if(line) out.push(line);
+  return out;
+}
+
+function centerText(text, width){
+  const t = String(text || "");
+  const left = Math.max(0, Math.floor((width - t.length)/2));
+  return " ".repeat(left) + t;
+}
+
+function receiptToPlainText(data, s){
+  const width = s.paperWidth === "58" ? 30 : 42;
+  const sep = "=".repeat(width);
+  const mini = "-".repeat(width);
+
+  const lines = [];
+  lines.push(sep);
+  lines.push(centerText("TURBOFLOW", width));
+  lines.push(centerText("PEDIDO RECEBIDO", width));
+  lines.push(sep);
+  lines.push("");
+  lines.push(centerText(`#${data.orderId}`, width));
+  lines.push("");
+  lines.push(sep);
+
+  const pushLabel = (label, value)=>{
+    const prefix = `${label}: `;
+    const usable = Math.max(8, width - prefix.length);
+    const wrapped = wrapText(value, usable);
+    if(!wrapped.length){
+      lines.push(prefix);
+      return;
+    }
+    lines.push(prefix + wrapped[0]);
+    for(const w of wrapped.slice(1)){
+      lines.push(" ".repeat(prefix.length) + w);
+    }
+  };
+
+  pushLabel("CLIENTE", data.customer);
+  pushLabel("ENTREGA", data.address);
+  if(data.neighborhood) pushLabel("BAIRRO", data.neighborhood);
+  if(data.reference) pushLabel("REFERENCIA", data.reference);
+
+  lines.push(sep);
+  lines.push(centerText("ITENS DO PEDIDO", width));
+  lines.push(sep);
+
+  let lastCategory = "";
+  for(const it of data.items || []){
+    if(s.showCategories && it.category !== lastCategory){
+      lines.push(String(it.category || "ITENS").toUpperCase());
+      lastCategory = it.category;
+    }
+
+    const product = `${it.qty}x ${String(it.name || "").toUpperCase()}`;
+    for(const l of wrapText(product, width)) lines.push(l);
+
+    for(const addon of (it.addons || [])){
+      for(const l of wrapText(`- ${addon}`, width-2)){
+        lines.push("  " + l);
+      }
+    }
+
+    if(s.showDescription && it.description){
+      for(const l of wrapText(it.description, width-2)){
+        lines.push("  " + l);
+      }
+    }
+
+    if(it.observations){
+      for(const l of wrapText(`OBS: ${it.observations}`, width)){
+        lines.push(l.toUpperCase());
+      }
+    }
+
+    lines.push(mini);
+  }
+
+  lines.push("PAGAMENTO");
+  for(const l of wrapText(data.payment || "Pagamento", width)){
+    lines.push(l);
+  }
+
+  lines.push(sep);
+  const totalText = tfMoney(data.total);
+  const label = "TOTAL:";
+  const spaces = Math.max(1, width - label.length - totalText.length);
+  lines.push(label + " ".repeat(spaces) + totalText);
+  lines.push(sep);
+  lines.push("");
+  lines.push("");
+
+  return lines.join("\r\n");
+}
 
 async function loadPrintingPage(){
   const s = await api("/api/print-settings");
@@ -346,45 +624,9 @@ function collectPrintSettings(){
   };
 }
 
-function sampleReceiptData(){
-  return {
-    storeName: "SUA LOJA",
-    cnpj: "12.345.678/0001-90",
-    orderId: "B-0001",
-    customer: "Cliente Teste",
-    address: "Rua Exemplo, 123 - Centro",
-    items: [
-      {category:"HAMBÚRGUERES", qty:1, name:"Hambúrguer Turbo", price:25, desc:"Pão, carne, queijo e molho", addons:["1 Bacon","1 Maionese"]},
-      {category:"HAMBÚRGUERES", qty:1, name:"Combo Turbo", price:35, desc:"Hambúrguer + batata + bebida", addons:["1 Cheddar","1 Refrigerante"]}
-    ],
-    payment:"Pago online",
-    total:60
-  };
-}
 
-function buildReceiptHtml(data, s){
-  const itemHtml = data.items.map((it,i)=>{
-    const cat = s.showCategories && (i===0 || data.items[i-1]?.category!==it.category) ? `<div class="r-cat">${escapeHtml(it.category)}</div>` : "";
-    const desc = s.showDescription ? `<div class="r-desc">${escapeHtml(it.desc||"")}</div>` : "";
-    const addons = (it.addons||[]).map(a=>`<div class="r-addon">${escapeHtml(a)}</div>`).join("");
-    return `${cat}<div class="r-item"><span>${it.qty}x ${escapeHtml(it.name)}</span><b>${money(it.price)}</b></div>${desc}${addons}`;
-  }).join("");
 
-  return `
-    <div class="r-store">${escapeHtml(data.storeName)}</div>
-    ${s.showCnpj ? `<div class="r-center">CNPJ ${escapeHtml(data.cnpj)}</div>` : ""}
-    <div class="r-sep"></div>
-    ${s.showOrderId ? `<div class="r-center"><b>Pedido</b><br>${escapeHtml(data.orderId)}</div>` : ""}
-    ${s.showCustomer ? `<div class="r-line"><b>Cliente:</b> ${escapeHtml(data.customer)}</div>` : ""}
-    ${s.showAddress ? `<div class="r-line"><b>Entrega:</b> ${escapeHtml(data.address)}</div>` : ""}
-    <div class="r-sep"></div>
-    <div class="r-center"><b>ITENS DO PEDIDO</b></div>
-    ${itemHtml}
-    <div class="r-sep"></div>
-    ${s.showPayment ? `<div class="r-center"><b>PAGAMENTO</b></div><div class="r-line">${escapeHtml(data.payment)}</div>` : ""}
-    <div class="r-total"><span>Total</span><b>${money(data.total)}</b></div>
-  `;
-}
+
 
 function renderReceiptPreview(){
   const s = collectPrintSettings();

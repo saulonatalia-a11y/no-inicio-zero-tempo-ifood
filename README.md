@@ -149,3 +149,14 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 ## v1.1.1
 - Corrigido erro `readJson is not defined` nas rotas POST de configuração/impressão.
 - Sem alterações no Webhook ou fluxo de pedidos.
+
+
+## v1.1.2 — Notinha organizada
+- Número do pedido grande, centralizado e em negrito
+- CLIENTE, ENTREGA, BAIRRO e REFERÊNCIA destacados
+- Produto em negrito
+- Observações do item em negrito
+- Separadores organizados
+- Quebra de linha controlada para 58 mm e 80 mm
+- Total destacado
+- Prévia do site atualizada para o novo layout
