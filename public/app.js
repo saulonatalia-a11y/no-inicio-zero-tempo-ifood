@@ -280,6 +280,35 @@ $("#openAssistant")?.addEventListener("click", async()=>{
 
 
 
+
+function buildStructuredReceipt(data, s){
+  return {
+    company: "TURBOFLOW",
+    source: data.source || "iFood",
+    orderId: data.orderId || "",
+    cnpj: s.showCnpj ? (data.cnpj || "") : "",
+    showOrderId: s.showOrderId !== false,
+    showCustomer: s.showCustomer !== false,
+    showAddress: s.showAddress !== false,
+    showPayment: s.showPayment !== false,
+    showTotal: s.showTotal !== false,
+    customer: data.customer || "",
+    address: data.address || "",
+    neighborhood: data.neighborhood || "",
+    reference: data.reference || "",
+    payment: data.payment || "",
+    total: Number(data.total || 0),
+    items: (data.items || []).map(it=>({
+      category: s.showCategories ? (it.category || "") : "",
+      qty: Number(it.qty || 1),
+      name: it.name || "",
+      description: s.showDescription ? (it.description || "") : "",
+      addons: Array.isArray(it.addons) ? it.addons : [],
+      observations: it.observations || ""
+    }))
+  };
+}
+
 async function printThroughAgent(data, settingsOverride = null){
   const s = settingsOverride || collectPrintSettings() || currentPrintSettings;
   if(!s.useAssistant) throw new Error("Assistente de impressão desativado.");
@@ -295,6 +324,7 @@ async function printThroughAgent(data, settingsOverride = null){
       body:JSON.stringify({
         printer:s.selectedPrinter,
         text,
+        receipt:buildStructuredReceipt(data, s),
         copies:Number(s.copies || 1),
         fontSize:Number(s.fontSize || 12),
         companyFontSize:Number(s.companyFontSize || 28),
