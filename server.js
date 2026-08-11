@@ -1,0 +1,492 @@
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const { URL } = require("url");
+const crypto = require("crypto");
+
+loadEnv();
+
+const PORT = Number(process.env.PORT || 3000);
+const API = "https://merchant-api.ifood.com.br";
+const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS || 1800000);
+const AUTO_CONFIRM = String(process.env.AUTO_CONFIRM || "true").toLowerCase() === "true";
+const AUTO_START_PREPARATION = String(process.env.AUTO_START_PREPARATION || "true").toLowerCase() === "true";
+const SETTINGS_FILE = path.join(__dirname, "settings.json");
+
+function loadSettings() {
+  const defaults = {
+    autoConfirm: true,
+    autoStartPreparation: true,
+    autoDispatch: true,
+    dispatchDelaySeconds: 10
+  };
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(defaults, null, 2), "utf8");
+      return defaults;
+    }
+    return { ...defaults, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8")) };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveSettings(next) {
+  settings = { ...settings, ...next };
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
+  return settings;
+}
+
+let settings = loadSettings();
+
+let tokenCache = { accessToken: null, expiresAt: 0 };
+let orders = new Map();
+let eventsLog = [];
+let isPolling = false;
+
+function loadEnv() {
+  const envPath = path.join(__dirname, ".env");
+  if (!fs.existsSync(envPath)) return;
+  const text = fs.readFileSync(envPath, "utf8");
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq < 0) continue;
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
+
+function log(type, message, data = null) {
+  const item = { at: new Date().toISOString(), type, message, data };
+  eventsLog.unshift(item);
+  eventsLog = eventsLog.slice(0, 100);
+  console.log(`[${item.at}] ${type}: ${message}`);
+}
+
+async function getToken() {
+  const now = Date.now();
+  if (tokenCache.accessToken && now < tokenCache.expiresAt - 60000) return tokenCache.accessToken;
+
+  const clientId = process.env.IFOOD_CLIENT_ID;
+  const clientSecret = process.env.IFOOD_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error("Preencha IFOOD_CLIENT_ID e IFOOD_CLIENT_SECRET no arquivo .env");
+
+  const body = new URLSearchParams({
+    grantType: "client_credentials",
+    clientId,
+    clientSecret
+  });
+
+  const res = await fetch(`${API}/authentication/v1.0/oauth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+
+  const data = await parseResponse(res);
+  if (!res.ok) throw new Error(`Falha ao autenticar no iFood (${res.status}): ${JSON.stringify(data)}`);
+
+  const accessToken = data.accessToken || data.access_token;
+  const expiresIn = Number(data.expiresIn || data.expires_in || 21600);
+  if (!accessToken) throw new Error("O iFood não retornou accessToken.");
+
+  tokenCache = { accessToken, expiresAt: now + expiresIn * 1000 };
+  log("auth", "Token do iFood atualizado.");
+  return accessToken;
+}
+
+async function ifoodRequest(endpoint, options = {}) {
+  const token = await getToken();
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(options.headers || {})
+  };
+  const res = await fetch(`${API}${endpoint}`, { ...options, headers });
+  const data = await parseResponse(res);
+  if (!res.ok) throw new Error(`iFood ${options.method || "GET"} ${endpoint} -> ${res.status}: ${JSON.stringify(data)}`);
+  return { status: res.status, data };
+}
+
+async function parseResponse(res) {
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return text; }
+}
+
+
+const processedWebhookEvents = new Map();
+
+function cleanupWebhookIds() {
+  const cutoff = Date.now() - (8 * 60 * 60 * 1000);
+  for (const [id, ts] of processedWebhookEvents.entries()) {
+    if (ts < cutoff) processedWebhookEvents.delete(id);
+  }
+}
+
+function validateWebhookSignature(rawBody, receivedSignature) {
+  const secret = process.env.IFOOD_CLIENT_SECRET;
+  if (!secret || !receivedSignature) return false;
+
+  const expectedHex = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex");
+
+  const a = Buffer.from(String(expectedHex).toLowerCase(), "utf8");
+  const b = Buffer.from(String(receivedSignature).trim().toLowerCase(), "utf8");
+
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+async function handleWebhook(req, res) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const rawBody = Buffer.concat(chunks);
+
+  const signature = req.headers["x-ifood-signature"];
+  if (!validateWebhookSignature(rawBody, signature)) {
+    log("security", "Webhook rejeitado: assinatura inválida.");
+    res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+    return res.end(JSON.stringify({ error: "invalid signature" }));
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(rawBody.toString("utf8"));
+  } catch {
+    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    return res.end(JSON.stringify({ error: "invalid json" }));
+  }
+
+  // Responde rápido; o processamento continua em seguida.
+  res.writeHead(202, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify({ accepted: true }));
+
+  const events = Array.isArray(payload) ? payload : [payload];
+
+  setImmediate(async () => {
+    cleanupWebhookIds();
+
+    for (const event of events) {
+      const eventId = event?.id;
+      if (eventId && processedWebhookEvents.has(eventId)) {
+        log("webhook", `Evento duplicado ignorado: ${eventId}`);
+        continue;
+      }
+
+      try {
+        if (eventId) processedWebhookEvents.set(eventId, Date.now());
+
+        const code = String(event?.code || event?.fullCode || "").toUpperCase();
+
+        // KEEPALIVE é recebido e registrado; presença avançada será configurada
+        // quando tivermos a URL pública e o payload real do portal.
+        if (code === "KEEPALIVE") {
+          log("heartbeat", "KEEPALIVE recebido do iFood.");
+          continue;
+        }
+
+        log("webhook", `Evento em tempo real: ${code || "EVENTO"} ${event?.orderId || ""}`.trim());
+        await processEvent(event);
+      } catch (err) {
+        log("error", `Erro no processamento do webhook: ${err.message}`, event);
+      }
+    }
+  });
+}
+
+async function pollEvents() {
+  if (isPolling) return;
+  isPolling = true;
+  try {
+    const { data } = await ifoodRequest("/events/v1.0/events:polling");
+    const events = Array.isArray(data) ? data : (data?.events || []);
+    if (!events.length) return;
+
+    events.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+    const processedIds = [];
+    for (const event of events) {
+      try {
+        await processEvent(event);
+        if (event.id) processedIds.push(event.id);
+      } catch (err) {
+        log("error", `Erro processando evento ${event.id || "sem-id"}: ${err.message}`, event);
+      }
+    }
+
+    if (processedIds.length) {
+      const acknowledgmentBody = processedIds.map(id => ({ id }));
+      await ifoodRequest("/events/v1.0/events/acknowledgment", {
+        method: "POST",
+        body: JSON.stringify(acknowledgmentBody)
+      });
+      log("ack", `${processedIds.length} evento(s) confirmado(s) ao iFood.`);
+    }
+  } catch (err) {
+    log("error", err.message);
+  } finally {
+    isPolling = false;
+  }
+}
+
+async function processEvent(event) {
+  const code = String(event.code || event.fullCode || "").toUpperCase();
+  const orderId = event.orderId || event.order?.id;
+  log("event", `${code || "EVENTO"} ${orderId || ""}`.trim(), event);
+
+  if (!orderId) return;
+
+  if (["PLACED", "PLC"].includes(code) || code.includes("PLACED")) {
+    const detail = await getOrderDetail(orderId);
+    orders.set(orderId, normalizeOrder(detail));
+    if (settings.autoConfirm) await actionConfirm(orderId);
+    return;
+  }
+
+  if (["CONFIRMED", "CFM"].includes(code) || code.includes("CONFIRMED")) {
+    const current = orders.get(orderId) || { id: orderId };
+    current.status = "CONFIRMED";
+    current.updatedAt = new Date().toISOString();
+    orders.set(orderId, current);
+    if (settings.autoStartPreparation) {
+      await actionStartPreparation(orderId);
+      if (settings.autoDispatch) scheduleAutoDispatch(orderId);
+    }
+    return;
+  }
+
+  const current = orders.get(orderId) || { id: orderId };
+
+  if (["CAN", "CANCELLED", "CANCELED"].includes(code) || code.includes("CANCEL")) {
+    current.status = "CANCELLED";
+    current.isClosed = true;
+  } else if (["CON", "CONCLUDED", "COMPLETED"].includes(code) || code.includes("CONCLUD") || code.includes("COMPLET")) {
+    current.status = "CONCLUDED";
+    current.isClosed = true;
+  } else {
+    current.status = code || current.status || "UPDATED";
+  }
+
+  current.updatedAt = new Date().toISOString();
+  orders.set(orderId, current);
+}
+
+async function getOrderDetail(id) {
+  const { data } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}`);
+  return data;
+}
+
+function normalizeOrder(o) {
+  return {
+    id: o.id,
+    displayId: o.displayId || o.shortReference || o.id?.slice(0, 8),
+    status: o.status || "PLACED",
+    orderType: o.orderType,
+    category: o.category,
+    createdAt: o.createdAt,
+    updatedAt: new Date().toISOString(),
+    merchant: o.merchant,
+    customer: o.customer,
+    items: o.items || [],
+    total: o.total,
+    delivery: o.delivery,
+    raw: o
+  };
+}
+
+
+const dispatchTimers = new Map();
+
+function scheduleAutoDispatch(id) {
+  if (!settings.autoDispatch) return;
+  if (dispatchTimers.has(id)) clearTimeout(dispatchTimers.get(id));
+
+  const delayMs = Math.max(1, Number(settings.dispatchDelaySeconds || 10)) * 1000;
+  log("timer", `Pedido ${id}: despacho automático em ${Math.round(delayMs/1000)}s.`);
+
+  const timer = setTimeout(async () => {
+    try {
+      const current = orders.get(id);
+      if (current?.isClosed) return;
+      await actionDispatch(id);
+      log("auto", `Despacho automático executado para ${id}.`);
+    } catch (err) {
+      log("error", `Falha no despacho automático de ${id}: ${err.message}`);
+    } finally {
+      dispatchTimers.delete(id);
+    }
+  }, delayMs);
+
+  dispatchTimers.set(id, timer);
+}
+
+async function actionConfirm(id) {
+  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/confirm`, { method: "POST" });
+  const current = orders.get(id) || { id };
+  current.status = "CONFIRM_REQUESTED";
+  current.updatedAt = new Date().toISOString();
+  orders.set(id, current);
+  log("action", `Confirmação enviada para ${id}`);
+  return current;
+}
+
+async function actionStartPreparation(id) {
+  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/startPreparation`, { method: "POST" });
+  const current = orders.get(id) || { id };
+  current.status = "PREPARATION_REQUESTED";
+  current.updatedAt = new Date().toISOString();
+  orders.set(id, current);
+  log("action", `Início de preparo enviado para ${id}`);
+  return current;
+}
+
+async function actionDispatch(id) {
+  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/dispatch`, { method: "POST" });
+  const current = orders.get(id) || { id };
+  current.status = "DISPATCH_REQUESTED";
+  current.updatedAt = new Date().toISOString();
+  orders.set(id, current);
+  log("action", `Despacho enviado para ${id}`);
+  return current;
+}
+
+async function handleApi(req, res, url) {
+  if (req.method === "GET" && url.pathname === "/api/status") {
+    return json(res, 200, {
+      configured: Boolean(process.env.IFOOD_CLIENT_ID && process.env.IFOOD_CLIENT_SECRET),
+      polling: isPolling,
+      autoConfirm: settings.autoConfirm,
+      autoStartPreparation: settings.autoStartPreparation,
+      autoDispatch: settings.autoDispatch,
+      dispatchDelaySeconds: settings.dispatchDelaySeconds,
+      pollIntervalMs: POLL_INTERVAL_MS,
+      transport: "webhook",
+      webhookPath: "/webhook/ifood"
+    });
+  }
+
+
+  if (req.method === "GET" && url.pathname === "/api/settings") {
+    return json(res, 200, settings);
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/settings") {
+    const body = await readJsonBody(req);
+    const delay = Math.max(1, Math.min(3600, Number(body.dispatchDelaySeconds ?? settings.dispatchDelaySeconds)));
+
+    const next = saveSettings({
+      autoConfirm: Boolean(body.autoConfirm),
+      autoStartPreparation: Boolean(body.autoStartPreparation),
+      autoDispatch: Boolean(body.autoDispatch),
+      dispatchDelaySeconds: delay
+    });
+
+    log("settings", `Configurações atualizadas: despacho automático ${next.autoDispatch ? "ligado" : "desligado"}, ${next.dispatchDelaySeconds}s.`);
+    return json(res, 200, next);
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/orders") {
+    return json(res, 200, [...orders.values()].sort((a,b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)));
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/logs") {
+    return json(res, 200, eventsLog);
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/poll") {
+    await pollEvents();
+    return json(res, 200, { ok: true });
+  }
+
+  const actionMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/(confirm|start|dispatch)$/);
+  if (req.method === "POST" && actionMatch) {
+    const id = decodeURIComponent(actionMatch[1]);
+    const action = actionMatch[2];
+    let result;
+    if (action === "confirm") result = await actionConfirm(id);
+    if (action === "start") result = await actionStartPreparation(id);
+    if (action === "dispatch") result = await actionDispatch(id);
+    return json(res, 200, { ok: true, order: result });
+  }
+
+  return json(res, 404, { error: "Rota não encontrada" });
+}
+
+
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", chunk => data += chunk);
+    req.on("end", () => {
+      try { resolve(data ? JSON.parse(data) : {}); }
+      catch (err) { reject(new Error("JSON inválido")); }
+    });
+    req.on("error", reject);
+  });
+}
+
+function json(res, status, obj) {
+  const body = JSON.stringify(obj, null, 2);
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+  res.end(body);
+}
+
+function serveStatic(req, res, url) {
+  let file = url.pathname === "/" ? "/index.html" : url.pathname;
+  const publicRoot = path.join(__dirname, "public");
+  const full = path.normalize(path.join(publicRoot, file));
+  if (!full.startsWith(publicRoot)) {
+    res.writeHead(403); return res.end("Forbidden");
+  }
+  if (!fs.existsSync(full) || fs.statSync(full).isDirectory()) {
+    res.writeHead(404); return res.end("Not found");
+  }
+  const ext = path.extname(full);
+  const mime = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8"
+  }[ext] || "application/octet-stream";
+  res.writeHead(200, { "Content-Type": mime });
+  fs.createReadStream(full).pipe(res);
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+
+    if (req.method === "POST" && url.pathname === "/webhook/ifood") {
+      return await handleWebhook(req, res);
+    }
+
+    if (req.method === "GET" && url.pathname === "/webhook/ifood/health") {
+      return json(res, 200, {
+        ok: true,
+        webhook: "/webhook/ifood",
+        configured: Boolean(process.env.IFOOD_CLIENT_SECRET)
+      });
+    }
+
+    if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
+    return serveStatic(req, res, url);
+  } catch (err) {
+    log("error", err.message);
+    return json(res, 500, { error: err.message });
+  }
+});
+
+server.listen(PORT, () => {
+  console.log(`No Início Zero Tempo: http://localhost:${PORT}`);
+  console.log(`Webhook local: http://localhost:${PORT}/webhook/ifood`);
+  console.log(`Polling de contingência a cada ${Math.round(POLL_INTERVAL_MS / 60000)} min`);
+  console.log(`Aguardando URL pública HTTPS para ativar o webhook no portal iFood...`);
+  setTimeout(pollEvents, 1500);
+  setInterval(pollEvents, POLL_INTERVAL_MS);
+});

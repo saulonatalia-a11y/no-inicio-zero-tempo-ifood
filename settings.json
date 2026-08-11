@@ -1,0 +1,6 @@
+{
+  "autoConfirm": true,
+  "autoStartPreparation": true,
+  "autoDispatch": true,
+  "dispatchDelaySeconds": 10
+}

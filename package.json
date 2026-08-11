@@ -1,0 +1,12 @@
+{
+  "name": "no-inicio-zero-tempo-ifood",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Painel inicial de integração com iFood Order API",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

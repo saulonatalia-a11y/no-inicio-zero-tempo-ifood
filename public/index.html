@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>No Início Zero Tempo — iFood</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">0</div>
+      <div>
+        <strong>No Início</strong>
+        <span>Zero Tempo</span>
+      </div>
+    </div>
+
+    <nav>
+      <button class="nav-item active">Gestor de pedidos</button>
+      <button class="nav-item">Histórico</button>
+      <button class="nav-item">Integrações</button>
+      <button class="nav-item">Configurações</button>
+      <button class="nav-item">Logs</button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="integration-pill">
+        <span class="dot"></span>
+        <span>iFood conectado</span>
+      </div>
+      <div class="integration-pill muted-pill">
+        <span class="dot gray"></span>
+        <span>99Food aguardando</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">CENTRAL DE PEDIDOS</p>
+        <h1>Gestor de pedidos</h1>
+      </div>
+      <div class="top-actions">
+        <button id="pollBtn" class="secondary">Buscar agora</button>
+        <button id="settingsBtn">Automação</button>
+      </div>
+    </header>
+
+    <section class="metrics">
+      <div class="metric">
+        <span>Pedidos ativos</span>
+        <strong id="activeCount">0</strong>
+      </div>
+      <div class="metric">
+        <span>Finalizados</span>
+        <strong id="finishedCount">0</strong>
+      </div>
+      <div class="metric">
+        <span>Despacho automático</span>
+        <strong id="autoDispatchMetric">10s</strong>
+      </div>
+      <div class="metric">
+        <span>Status iFood</span>
+        <strong class="ok">Conectado</strong>
+      </div>
+    </section>
+
+    <section class="board" id="board">
+      <div class="column" data-stage="new">
+        <div class="column-head red">
+          <div><span>Novo pedido</span><b id="count-new">0</b></div>
+        </div>
+        <div class="column-body" id="col-new"></div>
+      </div>
+
+      <div class="column" data-stage="prep">
+        <div class="column-head orange">
+          <div><span>Em preparo</span><b id="count-prep">0</b></div>
+        </div>
+        <div class="column-body" id="col-prep"></div>
+      </div>
+
+      <div class="column" data-stage="ready">
+        <div class="column-head blue">
+          <div><span>Pronto / despacho</span><b id="count-ready">0</b></div>
+        </div>
+        <div class="column-body" id="col-ready"></div>
+      </div>
+
+      <div class="column" data-stage="delivery">
+        <div class="column-head green">
+          <div><span>Em entrega</span><b id="count-delivery">0</b></div>
+        </div>
+        <div class="column-body" id="col-delivery"></div>
+      </div>
+
+      <div class="column" data-stage="finished">
+        <div class="column-head gray">
+          <div><span>Finalizados</span><b id="count-finished">0</b></div>
+        </div>
+        <div class="column-body" id="col-finished"></div>
+      </div>
+    </section>
+
+    <section class="activity card">
+      <div class="activity-head">
+        <h2>Atividade</h2>
+        <span id="connection" class="connection">Verificando...</span>
+      </div>
+      <div id="logs" class="logs"></div>
+    </section>
+  </main>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">AUTOMAÇÃO</p>
+          <h2>Configurações</h2>
+        </div>
+        <button id="closeSettings" class="icon-btn">×</button>
+      </div>
+
+      <label class="toggle-row">
+        <div>
+          <strong>Aceitar pedido automaticamente</strong>
+          <span>Confirma o pedido assim que ele entra.</span>
+        </div>
+        <input id="autoConfirm" type="checkbox">
+      </label>
+
+      <label class="toggle-row">
+        <div>
+          <strong>Iniciar preparo automaticamente</strong>
+          <span>Inicia o fluxo de preparo após a confirmação.</span>
+        </div>
+        <input id="autoStartPreparation" type="checkbox">
+      </label>
+
+      <label class="toggle-row">
+        <div>
+          <strong>Despachar automaticamente</strong>
+          <span>Marca pronto/despacha após o tempo definido.</span>
+        </div>
+        <input id="autoDispatch" type="checkbox">
+      </label>
+
+      <label class="field">
+        <span>Tempo para despachar</span>
+        <div class="input-with-suffix">
+          <input id="dispatchDelaySeconds" type="number" min="1" max="3600" value="10">
+          <b>segundos</b>
+        </div>
+      </label>
+
+      <div class="modal-actions">
+        <button id="saveSettings">Salvar configurações</button>
+      </div>
+    </div>
+  </div>
+
+  <template id="orderTpl">
+    <article class="order-card">
+      <div class="order-card-top">
+        <div>
+          <span class="platform">iFood</span>
+          <h3 class="order-id"></h3>
+        </div>
+        <span class="status-badge"></span>
+      </div>
+
+      <div class="items"></div>
+
+      <div class="order-card-bottom">
+        <strong class="total"></strong>
+        <div class="actions">
+          <button data-action="confirm" class="small secondary">Aceitar</button>
+          <button data-action="start" class="small secondary">Iniciar preparo</button>
+          <button data-action="dispatch" class="small">Despachar agora</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
