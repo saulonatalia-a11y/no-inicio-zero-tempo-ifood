@@ -21,19 +21,13 @@ function money(value) {
 
 function stageFor(o){
   const s = String(o.status || "").toUpperCase();
+  const stage = String(o.stage || "").toUpperCase();
 
-  if (o.isClosed || ["CONCLUDED","COMPLETED","CON"].includes(s)) return "finished";
-  if (["CANCELLED","CANCELED","CAN"].includes(s) || s.includes("CANCEL")) return "finished";
-
-  if (["DSP","DISPATCHED","DISPATCH_REQUESTED"].includes(s) || s.includes("DELIVERY") || s.includes("DELIVER")) return "delivery";
-
-  if (["PREPARATION_REQUESTED","PRS","DDCR"].includes(s) || s.includes("PREPAR")) return "prep";
-
-  if (["CONFIRMED","CFM","CONFIRM_REQUESTED"].includes(s)) return "prep";
-
-  if (["PLACED","PLC","NEW"].includes(s) || !s) return "new";
-
-  return "ready";
+  if (o.isClosed || stage === "FINISHED" || ["CONCLUDED","COMPLETED","CON","CANCELLED","CANCELED","CAN"].includes(s)) return "finished";
+  if (stage === "DELIVERY" || ["DSP","DISPATCHED"].includes(s)) return "delivery";
+  if (stage === "READY" || ["RTP","READY_TO_PICKUP","READY_REQUESTED"].includes(s)) return "ready";
+  if (stage === "PREPARATION" || ["PREPARATION_REQUESTED","PREPARATION","PRS","DDCR","CONFIRMED","CFM","CONFIRM_REQUESTED"].includes(s)) return "prep";
+  return "new";
 }
 
 function friendlyStatus(status){
@@ -47,8 +41,12 @@ function friendlyStatus(status){
     PRS:"Preparando",
     PREPARATION_REQUESTED:"Preparando",
     DDCR:"Preparando",
+    RTP:"Pronto",
+    READY_TO_PICKUP:"Pronto",
+    READY_REQUESTED:"Pronto",
     DSP:"Em entrega",
-    DISPATCH_REQUESTED:"Despachando",
+    DISPATCHED:"Em entrega",
+    DISPATCH_REQUESTED:"Em entrega",
     CANCELLED:"Cancelado",
     CAN:"Cancelado",
     CONCLUDED:"Finalizado",
@@ -63,7 +61,7 @@ async function loadStatus(){
     const c = $("#connection");
     c.textContent = s.configured ? "iFood conectado" : "Falta configurar credenciais";
     c.className = "connection " + (s.configured ? "ok" : "bad");
-    $("#autoDispatchMetric").textContent = `${s.dispatchDelaySeconds || 10}s`;
+    $("#autoDispatchMetric").textContent = `${s.acceptDelaySeconds ?? 5}s + ${s.readyDelaySeconds ?? 10}s`;
     const mode = s.transport === "webhook" ? "Tempo real / Webhook" : "Polling";
     const statusEl = document.querySelector(".metric strong.ok");
     if (statusEl) statusEl.textContent = s.configured ? mode : "Não configurado";
@@ -101,9 +99,15 @@ function renderOrder(o){
   const root = node.querySelector(".order-card");
   node.querySelector(".order-id").textContent = `#${o.displayId || String(o.id).slice(0,8)}`;
   node.querySelector(".status-badge").textContent = friendlyStatus(o.status);
-  if (o.autoDispatchDueAt && stageFor(o) === "prep") {
+  if (o.confirmDueAt && stageFor(o) === "new") {
     const badge = node.querySelector(".status-badge");
-    badge.dataset.dueAt = o.autoDispatchDueAt;
+    badge.dataset.dueAt = o.confirmDueAt;
+    badge.dataset.countdownLabel = "Aceita em";
+    badge.classList.add("countdown-badge");
+  } else if (o.readyDueAt && stageFor(o) === "prep") {
+    const badge = node.querySelector(".status-badge");
+    badge.dataset.dueAt = o.readyDueAt;
+    badge.dataset.countdownLabel = "Pronto em";
     badge.classList.add("countdown-badge");
   }
 
@@ -203,8 +207,9 @@ async function loadSettingsPage(){
   const s = await api("/api/settings");
   $("#pageAutoConfirm").checked = !!s.autoConfirm;
   $("#pageAutoStartPreparation").checked = !!s.autoStartPreparation;
-  $("#pageAutoDispatch").checked = !!s.autoDispatch;
-  $("#pageDispatchDelaySeconds").value = s.dispatchDelaySeconds || 10;
+  $("#pageAutoReady").checked = !!s.autoReady;
+  $("#pageAcceptDelaySeconds").value = s.acceptDelaySeconds ?? 5;
+  $("#pageReadyDelaySeconds").value = s.readyDelaySeconds ?? 10;
 }
 $("#pageSaveSettings")?.addEventListener("click", async()=>{
   const btn=$("#pageSaveSettings"); btn.disabled=true;
@@ -212,8 +217,9 @@ $("#pageSaveSettings")?.addEventListener("click", async()=>{
     await api("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
       autoConfirm:$("#pageAutoConfirm").checked,
       autoStartPreparation:$("#pageAutoStartPreparation").checked,
-      autoDispatch:$("#pageAutoDispatch").checked,
-      dispatchDelaySeconds:Number($("#pageDispatchDelaySeconds").value||10)
+      autoReady:$("#pageAutoReady").checked,
+      acceptDelaySeconds:Number($("#pageAcceptDelaySeconds").value||5),
+      readyDelaySeconds:Number($("#pageReadyDelaySeconds").value||10)
     })});
     alert("Configurações salvas.");
     await refresh();
@@ -231,7 +237,8 @@ $("#refreshLogs")?.addEventListener("click",loadFullLogs);
 function updateCountdowns(){
   document.querySelectorAll("[data-due-at]").forEach(el=>{
     const left=Math.max(0,Math.ceil((new Date(el.dataset.dueAt).getTime()-Date.now())/1000));
-    el.textContent=left>0?`Despacha em ${left}s`:"Despachando...";
+    const label = el.dataset.countdownLabel || "Tempo";
+    el.textContent=left>0?`${label} ${left}s`:"Executando...";
   });
 }
 setInterval(updateCountdowns,500);

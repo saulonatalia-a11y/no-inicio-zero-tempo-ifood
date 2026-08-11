@@ -18,7 +18,7 @@ button{cursor:pointer;border:0}
 .brand strong,.brand span{display:block}.brand span{color:#ff3b4f;font-weight:800}
 nav{display:flex;flex-direction:column;gap:6px}
 .nav-item{background:transparent;text-align:left;padding:12px 14px;border-radius:12px;color:#697386;font-weight:700}
-.nav-item.active{background:#fff1f3;color:#ff3b4f}
+.nav-item.active{background:#FFF9D9;color:#ff3b4f}
 .sidebar-footer{margin-top:auto;display:flex;flex-direction:column;gap:8px}
 .integration-pill{display:flex;align-items:center;gap:8px;font-size:13px;padding:10px 12px;background:#effbf4;border-radius:12px;color:#287347}
 .muted-pill{background:#f3f4f6;color:#7a8494}
@@ -95,3 +95,192 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .settings-actions{display:flex;justify-content:flex-end;margin-top:20px}
 .full-logs{max-height:600px}
 .countdown-badge{background:#fff6db!important;color:#9a6700!important}
+
+:root{
+  --tf-yellow:#FFD400;
+  --tf-yellow-deep:#E4B900;
+  --tf-black:#0B0B0B;
+  --tf-dark:#151515;
+  --tf-soft:#F5F6F8;
+  --tf-white:#FFFFFF;
+  --tf-text:#17191D;
+  --tf-muted:#7A8190;
+}
+
+body{
+  background:#F4F5F7;
+  color:var(--tf-text);
+}
+
+.sidebar{
+  background:#0B0B0B !important;
+  border-right:1px solid #202020 !important;
+}
+
+.brand-turboflow{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  align-items:flex-start;
+}
+
+.brand-logo-wrap{
+  width:170px;
+  max-width:100%;
+  background:transparent;
+  overflow:hidden;
+}
+
+.brand-logo{
+  width:100%;
+  height:auto;
+  display:block;
+  object-fit:contain;
+}
+
+.brand-mini{
+  padding:0 10px;
+}
+.brand-mini strong{
+  color:#FFD400;
+  display:block;
+  font-size:17px;
+  letter-spacing:.2px;
+}
+.brand-mini span{
+  color:#C8CBD1;
+  display:block;
+  font-size:10px;
+  margin-top:2px;
+  text-transform:uppercase;
+  letter-spacing:1.1px;
+}
+
+.nav-item{
+  color:#D9DCE2 !important;
+  background:transparent !important;
+  border:none !important;
+}
+.nav-item:hover{
+  background:#171717 !important;
+  color:#FFD400 !important;
+}
+.nav-item.active{
+  background:#FFD400 !important;
+  color:#0B0B0B !important;
+  font-weight:800 !important;
+}
+
+.sidebar-footer .integration-status,
+.sidebar-footer > div{
+  border-color:#292929 !important;
+}
+.sidebar-footer{
+  color:#D7DAE0 !important;
+}
+
+.main,
+main{
+  background:#F4F5F7;
+}
+
+.eyebrow,
+.kicker,
+.brand-accent{
+  color:#C9A600 !important;
+}
+
+.top-actions button,
+button.primary,
+.settings-actions button,
+#pageSaveSettings,
+#saveSettings{
+  background:#FFD400 !important;
+  color:#0B0B0B !important;
+  border:1px solid #E6BD00 !important;
+  font-weight:800 !important;
+}
+.top-actions button:hover,
+button.primary:hover,
+.settings-actions button:hover,
+#pageSaveSettings:hover,
+#saveSettings:hover{
+  background:#EFC700 !important;
+}
+
+.secondary,
+button.secondary{
+  background:#FFFFFF !important;
+  color:#161616 !important;
+  border:1px solid #D6D9DE !important;
+}
+
+.metric,
+.card,
+.page-card,
+.column,
+.order-card,
+.activity{
+  box-shadow:0 8px 24px rgba(0,0,0,.04);
+}
+
+.column.new{border-top-color:#FFD400 !important}
+.column.prep{border-top-color:#E0A800 !important}
+.column.ready{border-top-color:#222 !important}
+.column.delivery{border-top-color:#FFD400 !important}
+.column.finished{border-top-color:#858B95 !important}
+
+.order-card{
+  border:1px solid #E2E5E9 !important;
+}
+.order-card .source,
+.order-card .platform,
+.ifood,
+.source-ifood{
+  color:#D6AE00 !important;
+}
+
+.status-badge,
+.countdown-badge{
+  background:#FFF6BF !important;
+  color:#6D5900 !important;
+  border:1px solid #F0D85A !important;
+}
+
+.connection.ok,
+.status-ok{
+  background:#FFF6BF !important;
+  color:#5E4D00 !important;
+}
+
+.sidebar .connection.ok,
+.sidebar .status-ok{
+  background:#1B1B1B !important;
+  color:#FFD400 !important;
+}
+
+a{
+  color:#B99600;
+}
+
+input:focus,
+select:focus{
+  outline:none;
+  border-color:#FFD400 !important;
+  box-shadow:0 0 0 3px rgba(255,212,0,.18) !important;
+}
+
+input[type="checkbox"]{
+  accent-color:#FFD400;
+}
+
+.activity .log.auto,
+.activity .log.action,
+.log.auto,
+.log.action{
+  color:#927900 !important;
+}
+
+@media (max-width: 900px){
+  .brand-logo-wrap{width:145px}
+}

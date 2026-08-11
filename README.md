@@ -1,4 +1,4 @@
-# No Início Zero Tempo — iFood (v0.4)
+# TurboFlow — iFood (v0.7)
 
 Primeira versão local do painel de integração com a Order API do iFood.
 
@@ -89,3 +89,24 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 - Menus laterais funcionais.
 - Configurações funcionais.
 - Contagem regressiva do despacho.
+
+
+## v0.6 — Fluxo por etapas
+- Novo pedido: cronômetro de aceite configurável (padrão 5s)
+- Após aceite: inicia preparo automaticamente
+- Em preparo: cronômetro até ficar pronto (padrão 10s)
+- Ao terminar: chama `/readyToPickup` e move para Pronto / despacho
+- Em Pronto: espera o evento do iFood indicando que o entregador saiu com o pedido
+- Evento DSP / DISPATCHED: move para Em entrega
+- Evento CON / CONCLUDED: move para Finalizados
+- Cronômetro visível em cada pedido
+- Polling de contingência a cada 30s; Webhook deve ser o canal principal
+
+
+## v0.7 — Rebranding TurboFlow
+- Nome alterado para TurboFlow
+- Logo oficial adicionada ao painel
+- Paleta visual baseada na logo: preto, amarelo/dourado e branco
+- Menu lateral escuro com destaque amarelo
+- Botões e estados ajustados para a nova identidade visual
+- Mantém toda a lógica da integração iFood da v0.6

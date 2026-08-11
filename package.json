@@ -1,8 +1,8 @@
 {
-  "name": "no-inicio-zero-tempo-ifood",
+  "name": "turboflow-ifood",
   "version": "0.1.0",
   "private": true,
-  "description": "Painel inicial de integração com iFood Order API",
+  "description": "TurboFlow - gestor de pedidos e automacao iFood",
   "scripts": {
     "start": "node server.js"
   },

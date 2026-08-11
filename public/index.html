@@ -3,13 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>No Início Zero Tempo — iFood</title>
+  <title>TurboFlow — iFood</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-mark">0</div>
+    <div class="brand brand-turboflow">
+      <div class="brand-logo-wrap">
+        <img src="/turboflow-logo.png" alt="TurboFlow" class="brand-logo">
+      </div>
+      <div class="brand-mini">
+        <strong>TurboFlow</strong>
+        <span>Delivery em alta velocidade</span>
+      </div>
+    </div>
       <div>
         <strong>No Início</strong>
         <span>Zero Tempo</span>
@@ -43,7 +50,7 @@
         <h1>Gestor de pedidos</h1>
       </div>
       <div class="top-actions">
-        <button id="pollBtn" class="secondary">Buscar agora</button>
+        <button id="pollBtn" class="secondary">Sincronizar</button>
         <button id="settingsBtn">Automação</button>
       </div>
     </header>
@@ -59,8 +66,8 @@
         <strong id="finishedCount">0</strong>
       </div>
       <div class="metric">
-        <span>Despacho automático</span>
-        <strong id="autoDispatchMetric">10s</strong>
+        <span>Fluxo automático</span>
+        <strong id="autoDispatchMetric">5s + 10s</strong>
       </div>
       <div class="metric">
         <span>Status iFood</span>
@@ -132,8 +139,17 @@
         <p class="helper">Controle o fluxo automático.</p>
         <label class="toggle-row"><div><strong>Aceitar automaticamente</strong><span>Confirma assim que entra.</span></div><input id="pageAutoConfirm" type="checkbox"></label>
         <label class="toggle-row"><div><strong>Iniciar preparo automaticamente</strong><span>Inicia após confirmação.</span></div><input id="pageAutoStartPreparation" type="checkbox"></label>
-        <label class="toggle-row"><div><strong>Despachar automaticamente</strong><span>Sem popup depois do tempo configurado.</span></div><input id="pageAutoDispatch" type="checkbox"></label>
-        <label class="field"><span>Tempo antes do despacho</span><div class="input-with-suffix"><input id="pageDispatchDelaySeconds" type="number" min="1" max="3600" value="10"><b>segundos</b></div></label>
+        <label class="toggle-row"><div><strong>Marcar como pronto automaticamente</strong><span>Depois do tempo de preparo, avisa o iFood que está pronto para retirada.</span></div><input id="pageAutoReady" type="checkbox"></label>
+
+        <label class="field">
+          <span>Tempo para aceitar pedido</span>
+          <div class="input-with-suffix"><input id="pageAcceptDelaySeconds" type="number" min="0" max="3600" value="5"><b>segundos</b></div>
+        </label>
+
+        <label class="field">
+          <span>Tempo de preparo até ficar pronto</span>
+          <div class="input-with-suffix"><input id="pageReadyDelaySeconds" type="number" min="0" max="3600" value="10"><b>segundos</b></div>
+        </label>
         <div class="settings-actions"><button id="pageSaveSettings">Salvar configurações</button></div>
       </div>
     </section>
@@ -171,8 +187,8 @@
 
       <label class="toggle-row">
         <div>
-          <strong>Despachar automaticamente</strong>
-          <span>Marca pronto/despacha após o tempo definido.</span>
+          <strong>Marcar pronto automaticamente</strong>
+          <span>Depois do preparo, avisa que está pronto para retirada.</span>
         </div>
         <input id="autoDispatch" type="checkbox">
       </label>

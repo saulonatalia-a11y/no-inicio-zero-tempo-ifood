@@ -8,7 +8,7 @@ loadEnv();
 
 const PORT = Number(process.env.PORT || 3000);
 const API = "https://merchant-api.ifood.com.br";
-const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS || 1800000);
+const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS || 30000);
 const AUTO_CONFIRM = String(process.env.AUTO_CONFIRM || "true").toLowerCase() === "true";
 const AUTO_START_PREPARATION = String(process.env.AUTO_START_PREPARATION || "true").toLowerCase() === "true";
 const SETTINGS_FILE = path.join(__dirname, "settings.json");
@@ -17,8 +17,9 @@ function loadSettings() {
   const defaults = {
     autoConfirm: true,
     autoStartPreparation: true,
-    autoDispatch: true,
-    dispatchDelaySeconds: 10
+    autoReady: true,
+    acceptDelaySeconds: 5,
+    readyDelaySeconds: 10
   };
   try {
     if (!fs.existsSync(SETTINGS_FILE)) {
@@ -38,6 +39,9 @@ function saveSettings(next) {
 }
 
 let settings = loadSettings();
+settings.autoReady = settings.autoReady ?? settings.autoDispatch ?? true;
+settings.acceptDelaySeconds = Number(settings.acceptDelaySeconds ?? 5);
+settings.readyDelaySeconds = Number(settings.readyDelaySeconds ?? settings.dispatchDelaySeconds ?? 10);
 
 let tokenCache = { accessToken: null, expiresAt: 0 };
 let orders = new Map();
@@ -46,7 +50,10 @@ let isPolling = false;
 
 const autoConfirmDone = new Set();
 const autoStartDone = new Set();
-const autoDispatchDone = new Set();
+const autoReadyDone = new Set();
+
+const confirmTimers = new Map();
+const readyTimers = new Map();
 
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -246,24 +253,27 @@ async function processEvent(event) {
 
   if (!orderId) return;
 
+  // Novo pedido: busca detalhes imediatamente e agenda o aceite.
   if (["PLACED", "PLC"].includes(code) || code.includes("PLACED")) {
     const detail = await getOrderDetail(orderId);
     const normalized = normalizeOrder(detail);
     normalized.status = "PLACED";
+    normalized.stage = "NEW";
     orders.set(orderId, normalized);
 
-    if (settings.autoConfirm && !autoConfirmDone.has(orderId)) {
-      autoConfirmDone.add(orderId);
-      await actionConfirm(orderId);
-      log("auto", `Aceite automático executado para ${orderId}.`);
+    if (settings.autoConfirm && !autoConfirmDone.has(orderId) && !confirmTimers.has(orderId)) {
+      scheduleAutoConfirm(orderId);
     }
     return;
   }
 
+  // Confirmado: entra em preparo e agenda "pronto para retirada".
   if (["CONFIRMED", "CFM"].includes(code) || code.includes("CONFIRMED")) {
     const current = orders.get(orderId) || { id: orderId };
     current.status = "CONFIRMED";
+    current.stage = "PREPARATION";
     current.updatedAt = new Date().toISOString();
+    current.confirmDueAt = null;
     orders.set(orderId, current);
 
     if (settings.autoStartPreparation && !autoStartDone.has(orderId)) {
@@ -272,30 +282,45 @@ async function processEvent(event) {
       log("auto", `Início de preparo automático executado para ${orderId}.`);
     }
 
-    if (settings.autoDispatch && !autoDispatchDone.has(orderId) && !dispatchTimers.has(orderId)) {
-      scheduleAutoDispatch(orderId);
+    if (settings.autoReady && !autoReadyDone.has(orderId) && !readyTimers.has(orderId)) {
+      scheduleAutoReady(orderId);
     }
     return;
   }
 
+  // Preparando. Mantém/agendas o timer de pronto se ainda necessário.
   if (["PRS", "DDCR"].includes(code) || code.includes("PREPAR")) {
     const current = orders.get(orderId) || { id: orderId };
     current.status = "PREPARATION";
+    current.stage = "PREPARATION";
     current.updatedAt = new Date().toISOString();
     orders.set(orderId, current);
 
-    if (settings.autoDispatch && !autoDispatchDone.has(orderId) && !dispatchTimers.has(orderId)) {
-      scheduleAutoDispatch(orderId);
+    if (settings.autoReady && !autoReadyDone.has(orderId) && !readyTimers.has(orderId)) {
+      scheduleAutoReady(orderId);
     }
     return;
   }
 
+  // Ready to pickup: pedido pronto, esperando entregador.
+  if (["RTP", "READY_TO_PICKUP", "READYTOPICKUP"].includes(code) || code.includes("READY_TO_PICKUP")) {
+    const current = orders.get(orderId) || { id: orderId };
+    current.status = "READY_TO_PICKUP";
+    current.stage = "READY";
+    current.readyDueAt = null;
+    current.updatedAt = new Date().toISOString();
+    orders.set(orderId, current);
+    autoReadyDone.add(orderId);
+    return;
+  }
+
+  // DISPATCHED: o entregador já saiu com o pedido.
   if (["DSP", "DISPATCHED"].includes(code) || code.includes("DISPATCH")) {
     const current = orders.get(orderId) || { id: orderId };
     current.status = "DISPATCHED";
+    current.stage = "DELIVERY";
     current.updatedAt = new Date().toISOString();
     orders.set(orderId, current);
-    autoDispatchDone.add(orderId);
     return;
   }
 
@@ -303,9 +328,11 @@ async function processEvent(event) {
 
   if (["CAN", "CANCELLED", "CANCELED"].includes(code) || code.includes("CANCEL")) {
     current.status = "CANCELLED";
+    current.stage = "FINISHED";
     current.isClosed = true;
   } else if (["CON", "CONCLUDED", "COMPLETED"].includes(code) || code.includes("CONCLUD") || code.includes("COMPLET")) {
     current.status = "CONCLUDED";
+    current.stage = "FINISHED";
     current.isClosed = true;
   } else {
     current.status = code || current.status || "UPDATED";
@@ -339,47 +366,78 @@ function normalizeOrder(o) {
 }
 
 
-const dispatchTimers = new Map();
+function scheduleAutoConfirm(id) {
+  if (!settings.autoConfirm || autoConfirmDone.has(id)) return;
+  if (confirmTimers.has(id)) clearTimeout(confirmTimers.get(id));
 
-function scheduleAutoDispatch(id) {
-  if (!settings.autoDispatch) return;
-  if (autoDispatchDone.has(id)) return;
-  if (dispatchTimers.has(id)) clearTimeout(dispatchTimers.get(id));
-
-  const delayMs = Math.max(1, Number(settings.dispatchDelaySeconds || 10)) * 1000;
+  const delayMs = Math.max(0, Number(settings.acceptDelaySeconds || 5)) * 1000;
   const dueAt = Date.now() + delayMs;
 
   const current = orders.get(id) || { id };
-  current.autoDispatchDueAt = new Date(dueAt).toISOString();
+  current.stage = "NEW";
+  current.confirmDueAt = new Date(dueAt).toISOString();
   current.updatedAt = new Date().toISOString();
   orders.set(id, current);
 
-  log("timer", `Pedido ${id}: despacho automático em ${Math.round(delayMs/1000)}s.`);
+  log("timer", `Pedido ${id}: aceite automático em ${Math.round(delayMs/1000)}s.`);
 
   const timer = setTimeout(async () => {
     try {
-      const currentNow = orders.get(id);
-      if (currentNow?.isClosed || autoDispatchDone.has(id)) return;
+      const now = orders.get(id);
+      if (now?.isClosed || autoConfirmDone.has(id)) return;
 
-      await actionDispatch(id);
-      autoDispatchDone.add(id);
-
-      const updated = orders.get(id) || { id };
-      updated.status = "DISPATCH_REQUESTED";
-      updated.autoDispatchDueAt = null;
-      updated.updatedAt = new Date().toISOString();
-      orders.set(id, updated);
-
-      log("auto", `Despacho automático executado para ${id}.`);
+      await actionConfirm(id);
+      autoConfirmDone.add(id);
+      log("auto", `Aceite automático executado para ${id}.`);
     } catch (err) {
-      autoDispatchDone.delete(id);
-      log("error", `Falha no despacho automático de ${id}: ${err.message}`);
+      log("error", `Falha no aceite automático de ${id}: ${err.message}`);
     } finally {
-      dispatchTimers.delete(id);
+      confirmTimers.delete(id);
     }
   }, delayMs);
 
-  dispatchTimers.set(id, timer);
+  confirmTimers.set(id, timer);
+}
+
+function scheduleAutoReady(id) {
+  if (!settings.autoReady || autoReadyDone.has(id)) return;
+  if (readyTimers.has(id)) clearTimeout(readyTimers.get(id));
+
+  const delayMs = Math.max(0, Number(settings.readyDelaySeconds || 10)) * 1000;
+  const dueAt = Date.now() + delayMs;
+
+  const current = orders.get(id) || { id };
+  current.stage = "PREPARATION";
+  current.readyDueAt = new Date(dueAt).toISOString();
+  current.updatedAt = new Date().toISOString();
+  orders.set(id, current);
+
+  log("timer", `Pedido ${id}: ficará pronto em ${Math.round(delayMs/1000)}s.`);
+
+  const timer = setTimeout(async () => {
+    try {
+      const now = orders.get(id);
+      if (now?.isClosed || autoReadyDone.has(id)) return;
+
+      await actionReadyToPickup(id);
+      autoReadyDone.add(id);
+
+      const updated = orders.get(id) || { id };
+      updated.status = "READY_REQUESTED";
+      updated.stage = "READY";
+      updated.readyDueAt = null;
+      updated.updatedAt = new Date().toISOString();
+      orders.set(id, updated);
+
+      log("auto", `Pedido marcado como pronto automaticamente: ${id}.`);
+    } catch (err) {
+      log("error", `Falha ao marcar ${id} como pronto: ${err.message}`);
+    } finally {
+      readyTimers.delete(id);
+    }
+  }, delayMs);
+
+  readyTimers.set(id, timer);
 }
 
 async function actionConfirm(id) {
@@ -402,6 +460,18 @@ async function actionStartPreparation(id) {
   return current;
 }
 
+async function actionReadyToPickup(id) {
+  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/readyToPickup`, { method: "POST" });
+  const current = orders.get(id) || { id };
+  current.status = "READY_REQUESTED";
+  current.stage = "READY";
+  current.readyDueAt = null;
+  current.updatedAt = new Date().toISOString();
+  orders.set(id, current);
+  log("action", `Pedido pronto enviado para ${id}`);
+  return current;
+}
+
 async function actionDispatch(id) {
   await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/dispatch`, { method: "POST" });
   const current = orders.get(id) || { id };
@@ -419,8 +489,9 @@ async function handleApi(req, res, url) {
       polling: isPolling,
       autoConfirm: settings.autoConfirm,
       autoStartPreparation: settings.autoStartPreparation,
-      autoDispatch: settings.autoDispatch,
-      dispatchDelaySeconds: settings.dispatchDelaySeconds,
+      autoReady: settings.autoReady,
+      acceptDelaySeconds: settings.acceptDelaySeconds,
+      readyDelaySeconds: settings.readyDelaySeconds,
       pollIntervalMs: POLL_INTERVAL_MS,
       transport: "webhook",
       webhookPath: "/webhook/ifood"
@@ -434,16 +505,20 @@ async function handleApi(req, res, url) {
 
   if (req.method === "POST" && url.pathname === "/api/settings") {
     const body = await readJsonBody(req);
-    const delay = Math.max(1, Math.min(3600, Number(body.dispatchDelaySeconds ?? settings.dispatchDelaySeconds)));
+    const acceptDelay = Math.max(0, Math.min(3600, Number(body.acceptDelaySeconds ?? settings.acceptDelaySeconds ?? 5)));
+    const readyDelay = Math.max(0, Math.min(3600, Number(body.readyDelaySeconds ?? settings.readyDelaySeconds ?? 10)));
 
     const next = saveSettings({
       autoConfirm: Boolean(body.autoConfirm),
       autoStartPreparation: Boolean(body.autoStartPreparation),
-      autoDispatch: Boolean(body.autoDispatch),
-      dispatchDelaySeconds: delay
+      autoReady: Boolean(body.autoReady),
+      acceptDelaySeconds: acceptDelay,
+      readyDelaySeconds: readyDelay
     });
 
-    log("settings", `Configurações atualizadas: despacho automático ${next.autoDispatch ? "ligado" : "desligado"}, ${next.dispatchDelaySeconds}s.`);
+    settings = { ...settings, ...next };
+
+    log("settings", `Configurações: aceite ${next.acceptDelaySeconds}s, pronto ${next.readyDelaySeconds}s.`);
     return json(res, 200, next);
   }
 
@@ -460,13 +535,14 @@ async function handleApi(req, res, url) {
     return json(res, 200, { ok: true });
   }
 
-  const actionMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/(confirm|start|dispatch)$/);
+  const actionMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/(confirm|start|ready|dispatch)$/);
   if (req.method === "POST" && actionMatch) {
     const id = decodeURIComponent(actionMatch[1]);
     const action = actionMatch[2];
     let result;
     if (action === "confirm") result = await actionConfirm(id);
     if (action === "start") result = await actionStartPreparation(id);
+    if (action === "ready") result = await actionReadyToPickup(id);
     if (action === "dispatch") result = await actionDispatch(id);
     return json(res, 200, { ok: true, order: result });
   }
@@ -539,7 +615,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`No Início Zero Tempo: http://localhost:${PORT}`);
+  console.log(`TurboFlow: http://localhost:${PORT}`);
   console.log(`Webhook local: http://localhost:${PORT}/webhook/ifood`);
   console.log(`Polling de contingência a cada ${Math.round(POLL_INTERVAL_MS / 60000)} min`);
   console.log(`Aguardando URL pública HTTPS para ativar o webhook no portal iFood...`);
