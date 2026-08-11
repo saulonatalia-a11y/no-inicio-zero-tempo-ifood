@@ -82,3 +82,16 @@ button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:650px){
   .sidebar{display:none}.content{margin-left:0;padding:16px}.metrics{grid-template-columns:1fr 1fr}.topbar{align-items:flex-start;flex-direction:column}
 }
+
+.view-panel.hidden{display:none}
+.page-card{background:#fff;border:1px solid #e6e9ef;border-radius:18px;padding:22px}
+.helper{color:#7b8494;font-size:13px}
+.integration-card{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:16px 0;border-bottom:1px solid #edf0f3}
+.integration-card div span{display:block;font-size:12px;color:#7b8494;margin-top:4px}
+.status-ok,.status-muted{padding:7px 10px;border-radius:999px;font-size:12px}
+.status-ok{background:#ecfbf2;color:#287347}.status-muted{background:#f2f4f7;color:#7b8494}
+.simple-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.simple-row{display:flex;justify-content:space-between;padding:12px 14px;border:1px solid #e8ebef;border-radius:12px}
+.settings-actions{display:flex;justify-content:flex-end;margin-top:20px}
+.full-logs{max-height:600px}
+.countdown-badge{background:#fff6db!important;color:#9a6700!important}

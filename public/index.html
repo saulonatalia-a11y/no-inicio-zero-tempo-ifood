@@ -17,11 +17,11 @@
     </div>
 
     <nav>
-      <button class="nav-item active">Gestor de pedidos</button>
-      <button class="nav-item">Histórico</button>
-      <button class="nav-item">Integrações</button>
-      <button class="nav-item">Configurações</button>
-      <button class="nav-item">Logs</button>
+      <button class="nav-item active" data-view="orders">Gestor de pedidos</button>
+      <button class="nav-item" data-view="history">Histórico</button>
+      <button class="nav-item" data-view="integrations">Integrações</button>
+      <button class="nav-item" data-view="settings">Configurações</button>
+      <button class="nav-item" data-view="logs">Logs</button>
     </nav>
 
     <div class="sidebar-footer">
@@ -48,6 +48,7 @@
       </div>
     </header>
 
+    <section id="view-orders" class="view-panel">
     <section class="metrics">
       <div class="metric">
         <span>Pedidos ativos</span>
@@ -110,6 +111,35 @@
         <span id="connection" class="connection">Verificando...</span>
       </div>
       <div id="logs" class="logs"></div>
+    </section>
+    </section>
+
+    <section id="view-history" class="view-panel hidden">
+      <div class="page-card"><h2>Histórico</h2><div id="historyList" class="simple-list"></div></div>
+    </section>
+
+    <section id="view-integrations" class="view-panel hidden">
+      <div class="page-card">
+        <h2>Integrações</h2>
+        <div class="integration-card"><div><strong>iFood</strong><span>Conectado ao servidor.</span></div><b class="status-ok">Conectado</b></div>
+        <div class="integration-card"><div><strong>99Food</strong><span>Aguardando liberação.</span></div><b class="status-muted">Aguardando</b></div>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view-panel hidden">
+      <div class="page-card">
+        <h2>Configurações</h2>
+        <p class="helper">Controle o fluxo automático.</p>
+        <label class="toggle-row"><div><strong>Aceitar automaticamente</strong><span>Confirma assim que entra.</span></div><input id="pageAutoConfirm" type="checkbox"></label>
+        <label class="toggle-row"><div><strong>Iniciar preparo automaticamente</strong><span>Inicia após confirmação.</span></div><input id="pageAutoStartPreparation" type="checkbox"></label>
+        <label class="toggle-row"><div><strong>Despachar automaticamente</strong><span>Sem popup depois do tempo configurado.</span></div><input id="pageAutoDispatch" type="checkbox"></label>
+        <label class="field"><span>Tempo antes do despacho</span><div class="input-with-suffix"><input id="pageDispatchDelaySeconds" type="number" min="1" max="3600" value="10"><b>segundos</b></div></label>
+        <div class="settings-actions"><button id="pageSaveSettings">Salvar configurações</button></div>
+      </div>
+    </section>
+
+    <section id="view-logs" class="view-panel hidden">
+      <div class="page-card"><div class="activity-head"><h2>Logs</h2><button id="refreshLogs" class="secondary">Atualizar</button></div><div id="fullLogs" class="logs full-logs"></div></div>
     </section>
   </main>
 

@@ -2,6 +2,7 @@
 const $ = s => document.querySelector(s);
 const pollBtn = $("#pollBtn");
 let currentSettings = null;
+let latestOrders = [];
 
 async function api(url, options={}) {
   const res = await fetch(url, options);
@@ -79,6 +80,7 @@ async function loadSettings(){
 
 async function loadOrders(){
   const list = await api("/api/orders");
+  latestOrders = list;
   const stages = {new:[],prep:[],ready:[],delivery:[],finished:[]};
   list.forEach(o => stages[stageFor(o)].push(o));
 
@@ -99,6 +101,11 @@ function renderOrder(o){
   const root = node.querySelector(".order-card");
   node.querySelector(".order-id").textContent = `#${o.displayId || String(o.id).slice(0,8)}`;
   node.querySelector(".status-badge").textContent = friendlyStatus(o.status);
+  if (o.autoDispatchDueAt && stageFor(o) === "prep") {
+    const badge = node.querySelector(".status-badge");
+    badge.dataset.dueAt = o.autoDispatchDueAt;
+    badge.classList.add("countdown-badge");
+  }
 
   const items = node.querySelector(".items");
   const itemList = Array.isArray(o.items) ? o.items : [];
@@ -180,6 +187,54 @@ $("#saveSettings").onclick = async()=>{
     btn.disabled=false;
   }
 };
+
+
+function showView(name){
+  document.querySelectorAll(".view-panel").forEach(v=>v.classList.add("hidden"));
+  document.querySelector(`#view-${name}`)?.classList.remove("hidden");
+  document.querySelectorAll(".nav-item[data-view]").forEach(btn=>btn.classList.toggle("active", btn.dataset.view===name));
+  if(name==="settings") loadSettingsPage();
+  if(name==="history") renderHistory();
+  if(name==="logs") loadFullLogs();
+}
+document.querySelectorAll(".nav-item[data-view]").forEach(btn=>btn.onclick=()=>showView(btn.dataset.view));
+
+async function loadSettingsPage(){
+  const s = await api("/api/settings");
+  $("#pageAutoConfirm").checked = !!s.autoConfirm;
+  $("#pageAutoStartPreparation").checked = !!s.autoStartPreparation;
+  $("#pageAutoDispatch").checked = !!s.autoDispatch;
+  $("#pageDispatchDelaySeconds").value = s.dispatchDelaySeconds || 10;
+}
+$("#pageSaveSettings")?.addEventListener("click", async()=>{
+  const btn=$("#pageSaveSettings"); btn.disabled=true;
+  try{
+    await api("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      autoConfirm:$("#pageAutoConfirm").checked,
+      autoStartPreparation:$("#pageAutoStartPreparation").checked,
+      autoDispatch:$("#pageAutoDispatch").checked,
+      dispatchDelaySeconds:Number($("#pageDispatchDelaySeconds").value||10)
+    })});
+    alert("Configurações salvas.");
+    await refresh();
+  }catch(e){alert(e.message)} finally{btn.disabled=false}
+});
+function renderHistory(){
+  const list=latestOrders.filter(o=>o.isClosed||["CANCELLED","CONCLUDED","COMPLETED","CON"].includes(String(o.status||"").toUpperCase()));
+  $("#historyList").innerHTML=list.length?list.map(o=>`<div class="simple-row"><div><strong>#${escapeHtml(o.displayId||String(o.id).slice(0,8))}</strong><div>${escapeHtml(friendlyStatus(o.status))}</div></div><strong>${escapeHtml(money(o.total)||"")}</strong></div>`).join(""):'<div class="empty">Nenhum pedido no histórico.</div>';
+}
+async function loadFullLogs(){
+  const list=await api("/api/logs");
+  $("#fullLogs").innerHTML=list.length?list.map(x=>`<div class="log ${escapeHtml(x.type)}"><b>${new Date(x.at).toLocaleTimeString("pt-BR")}</b> — ${escapeHtml(x.message)}</div>`).join(""):'<div class="empty">Sem atividade</div>';
+}
+$("#refreshLogs")?.addEventListener("click",loadFullLogs);
+function updateCountdowns(){
+  document.querySelectorAll("[data-due-at]").forEach(el=>{
+    const left=Math.max(0,Math.ceil((new Date(el.dataset.dueAt).getTime()-Date.now())/1000));
+    el.textContent=left>0?`Despacha em ${left}s`:"Despachando...";
+  });
+}
+setInterval(updateCountdowns,500);
 
 function escapeHtml(s){
   return String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));

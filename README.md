@@ -82,3 +82,10 @@ Na próxima etapa, publique esta versão em um servidor e use a URL pública HTT
 
 ### Segurança
 Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de ambiente no servidor.
+
+
+## v0.5
+- Corrige despacho automático.
+- Menus laterais funcionais.
+- Configurações funcionais.
+- Contagem regressiva do despacho.

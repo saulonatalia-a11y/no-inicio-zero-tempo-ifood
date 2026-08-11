@@ -44,6 +44,10 @@ let orders = new Map();
 let eventsLog = [];
 let isPolling = false;
 
+const autoConfirmDone = new Set();
+const autoStartDone = new Set();
+const autoDispatchDone = new Set();
+
 function loadEnv() {
   const envPath = path.join(__dirname, ".env");
   if (!fs.existsSync(envPath)) return;
@@ -244,8 +248,15 @@ async function processEvent(event) {
 
   if (["PLACED", "PLC"].includes(code) || code.includes("PLACED")) {
     const detail = await getOrderDetail(orderId);
-    orders.set(orderId, normalizeOrder(detail));
-    if (settings.autoConfirm) await actionConfirm(orderId);
+    const normalized = normalizeOrder(detail);
+    normalized.status = "PLACED";
+    orders.set(orderId, normalized);
+
+    if (settings.autoConfirm && !autoConfirmDone.has(orderId)) {
+      autoConfirmDone.add(orderId);
+      await actionConfirm(orderId);
+      log("auto", `Aceite automático executado para ${orderId}.`);
+    }
     return;
   }
 
@@ -254,10 +265,37 @@ async function processEvent(event) {
     current.status = "CONFIRMED";
     current.updatedAt = new Date().toISOString();
     orders.set(orderId, current);
-    if (settings.autoStartPreparation) {
+
+    if (settings.autoStartPreparation && !autoStartDone.has(orderId)) {
+      autoStartDone.add(orderId);
       await actionStartPreparation(orderId);
-      if (settings.autoDispatch) scheduleAutoDispatch(orderId);
+      log("auto", `Início de preparo automático executado para ${orderId}.`);
     }
+
+    if (settings.autoDispatch && !autoDispatchDone.has(orderId) && !dispatchTimers.has(orderId)) {
+      scheduleAutoDispatch(orderId);
+    }
+    return;
+  }
+
+  if (["PRS", "DDCR"].includes(code) || code.includes("PREPAR")) {
+    const current = orders.get(orderId) || { id: orderId };
+    current.status = "PREPARATION";
+    current.updatedAt = new Date().toISOString();
+    orders.set(orderId, current);
+
+    if (settings.autoDispatch && !autoDispatchDone.has(orderId) && !dispatchTimers.has(orderId)) {
+      scheduleAutoDispatch(orderId);
+    }
+    return;
+  }
+
+  if (["DSP", "DISPATCHED"].includes(code) || code.includes("DISPATCH")) {
+    const current = orders.get(orderId) || { id: orderId };
+    current.status = "DISPATCHED";
+    current.updatedAt = new Date().toISOString();
+    orders.set(orderId, current);
+    autoDispatchDone.add(orderId);
     return;
   }
 
@@ -305,18 +343,36 @@ const dispatchTimers = new Map();
 
 function scheduleAutoDispatch(id) {
   if (!settings.autoDispatch) return;
+  if (autoDispatchDone.has(id)) return;
   if (dispatchTimers.has(id)) clearTimeout(dispatchTimers.get(id));
 
   const delayMs = Math.max(1, Number(settings.dispatchDelaySeconds || 10)) * 1000;
+  const dueAt = Date.now() + delayMs;
+
+  const current = orders.get(id) || { id };
+  current.autoDispatchDueAt = new Date(dueAt).toISOString();
+  current.updatedAt = new Date().toISOString();
+  orders.set(id, current);
+
   log("timer", `Pedido ${id}: despacho automático em ${Math.round(delayMs/1000)}s.`);
 
   const timer = setTimeout(async () => {
     try {
-      const current = orders.get(id);
-      if (current?.isClosed) return;
+      const currentNow = orders.get(id);
+      if (currentNow?.isClosed || autoDispatchDone.has(id)) return;
+
       await actionDispatch(id);
+      autoDispatchDone.add(id);
+
+      const updated = orders.get(id) || { id };
+      updated.status = "DISPATCH_REQUESTED";
+      updated.autoDispatchDueAt = null;
+      updated.updatedAt = new Date().toISOString();
+      orders.set(id, updated);
+
       log("auto", `Despacho automático executado para ${id}.`);
     } catch (err) {
+      autoDispatchDone.delete(id);
       log("error", `Falha no despacho automático de ${id}: ${err.message}`);
     } finally {
       dispatchTimers.delete(id);
