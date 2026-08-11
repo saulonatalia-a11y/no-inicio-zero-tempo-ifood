@@ -160,3 +160,10 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 - Quebra de linha controlada para 58 mm e 80 mm
 - Total destacado
 - Prévia do site atualizada para o novo layout
+
+
+## v1.1.3 — Instalador do Assistente embutido
+- O botão "Baixar Assistente" agora baixa diretamente:
+  `/downloads/TurboFlow-Assistente-Setup.exe`
+- O cliente recebe somente o instalador final.
+- Código-fonte do Assistente não é exposto pelo site.
