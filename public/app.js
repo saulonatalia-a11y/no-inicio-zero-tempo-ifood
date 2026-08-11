@@ -1,4 +1,23 @@
 
+async function turboFlowAccessGate(){
+  try{
+    const r = await fetch("/api/auth/me");
+    const d = await r.json();
+    if(!d.user){ location.href="/login.html"; return false; }
+    if(d.user.role==="admin"){ location.href="/admin.html"; return false; }
+    if(!d.access?.allowed){
+      location.href = d.access?.reason==="expired" ? "/expired.html" : "/pending.html";
+      return false;
+    }
+    return true;
+  }catch{
+    location.href="/login.html";
+    return false;
+  }
+}
+turboFlowAccessGate();
+
+
 function sampleReceiptData(){
   return {
     storeName:"TURBOFLOW",

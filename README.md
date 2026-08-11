@@ -188,3 +188,19 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 - `GET /webhook/99food` e `/webhook/99food/health` retornam status de prontidão.
 - O webhook e o fluxo do iFood não foram alterados.
 - Autenticação/assinatura específica da 99Food será adicionada depois que o aplicativo fornecer as credenciais oficiais.
+
+
+## v2.3 — Clientes, aprovação e planos
+- Cadastro público de cliente.
+- Conta começa como `pending`.
+- Login com senha protegida por PBKDF2-SHA256.
+- Sessão via cookie HttpOnly.
+- Painel `/admin.html` para aprovar, bloquear e renovar clientes.
+- Planos manuais de 7, 30 e 90 dias.
+- Vencimento bloqueia somente o acesso; dados permanecem salvos.
+- Administrador é criado pelas variáveis de ambiente:
+  - `TURBOFLOW_ADMIN_EMAIL`
+  - `TURBOFLOW_ADMIN_PASSWORD`
+
+### Importante
+Nesta fase os cadastros ficam em `auth-data.json`. Para vender em produção, antes de colocar vários clientes, migre este armazenamento para PostgreSQL ou outro banco persistente. Em serviços com filesystem efêmero, arquivos locais podem ser perdidos após recriações/deploys.
