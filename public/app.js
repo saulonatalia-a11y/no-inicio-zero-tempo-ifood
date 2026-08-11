@@ -281,7 +281,7 @@ $("#openAssistant")?.addEventListener("click", async()=>{
 
 
 async function printThroughAgent(data, settingsOverride = null){
-  const s = settingsOverride || currentPrintSettings || collectPrintSettings();
+  const s = settingsOverride || collectPrintSettings() || currentPrintSettings;
   if(!s.useAssistant) throw new Error("Assistente de impressão desativado.");
   if(!s.selectedPrinter) throw new Error("Nenhuma impressora selecionada.");
 
@@ -296,7 +296,8 @@ async function printThroughAgent(data, settingsOverride = null){
         printer:s.selectedPrinter,
         text,
         copies:Number(s.copies || 1),
-        fontSize:Number(s.fontSize || 10)
+        fontSize:Number(s.fontSize || 12),
+        paperWidth:String(s.paperWidth || "80")
       })
     });
     const body = await res.json().catch(()=>({}));
@@ -722,7 +723,8 @@ $("#savePrintSettings")?.addEventListener("click", async()=>{
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify(s)
     });
-    alert("Configuração de impressão salva.");
+    if($("#printFontSize")) $("#printFontSize").value = Number(currentPrintSettings.fontSize || s.fontSize || 12);
+    alert(`Configuração salva. Fonte da impressão: ${Number(currentPrintSettings.fontSize || s.fontSize || 12)}`);
   }catch(e){ alert(e.message); }
 });
 
