@@ -333,3 +333,17 @@ a cada 30 segundos com x-polling-merchants.
 - Quando existe autorização HML distribuída, desativa o polling legado feito com `IFOOD_CLIENT_ID`.
 - Mantém somente `pollHmlEvents()` usando o token OAuth do aplicativo Distribuído de Teste.
 - Evita que o Wizard receba heartbeat identificado como `merchant:<uuid>` do cliente antigo.
+
+## v2.16 — Homologação iFood Distribuída via POLLING
+
+Correções:
+- O Teste (C) fica dinamicamente bloqueado assim que houver accessToken/refreshToken do Teste (D).
+- `ifoodRequest()` passa a usar o token Authorization Code do Teste (D) durante a homologação.
+  Assim, detalhes, confirmação, cancelamento, despacho e demais chamadas não voltam ao Teste (C).
+- `pollHmlEvents()` continua funcionando com refreshToken mesmo após expiração do accessToken.
+- Polling HML continua a cada 30 segundos e usa `x-polling-merchants`.
+- A página Admin informa explicitamente que o Wizard deve ser iniciado como POLLING.
+
+Observação oficial do iFood:
+Webhook é indicado/suportado para autenticação centralizada; o aplicativo Distribuído deve
+usar polling no fluxo de homologação.
