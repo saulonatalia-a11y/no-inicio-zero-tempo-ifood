@@ -1,105 +1,222 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TurboFlow — Integrações</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#171717}
-.top{background:#0b0b0b;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center}.brand{color:#ffd400;font-size:25px;font-weight:950}
-.main{max-width:950px;margin:32px auto;padding:0 18px}.back{color:#555;text-decoration:none;font-weight:800}.head{margin:22px 0}.head h1{margin:0 0 6px}.head p{color:#6b7280}
-.card{background:#fff;border:1px solid #ddd;border-radius:17px;padding:22px;margin-bottom:16px;display:flex;gap:18px;align-items:center}
-.logo{width:62px;height:62px;border-radius:14px;display:grid;place-items:center;font-weight:950;font-size:22px}.ifood{background:#ea1d2c;color:#fff}.food99{background:#ffd400;color:#111}
-.info{flex:1}.info h2{margin:0 0 5px}.info p{margin:0;color:#6b7280;line-height:1.45}.status{font-weight:850;margin-top:9px}.ok{color:#16834b}.off{color:#8a8a8a}
-button{padding:11px 15px;border-radius:9px;border:1px solid #d0d5dd;background:#fff;font-weight:850;cursor:pointer}.primary{background:#ffd400;border-color:#d6b400}.danger{color:#a22535;background:#fff1f2}
-.note{background:#fff8d6;border:1px solid #f0d96a;border-radius:12px;padding:14px;color:#5f5200;line-height:1.5}
-</style></head>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#171717}
+.top{background:#0b0b0b;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center}
+.brand{color:#ffd400;font-size:25px;font-weight:950}
+.top button,.btn{padding:11px 15px;border-radius:9px;border:1px solid #d0d5dd;background:#fff;font-weight:850;cursor:pointer}
+.main{max-width:980px;margin:32px auto;padding:0 18px}
+.back{color:#555;text-decoration:none;font-weight:800}
+.head{margin:22px 0}.head h1{margin:0 0 6px}.head p{color:#6b7280}
+.platform-card{background:#fff;border:1px solid #ddd;border-radius:17px;padding:22px;margin-bottom:16px}
+.platform-row{display:flex;gap:18px;align-items:center}
+.logo{width:62px;height:62px;border-radius:14px;display:grid;place-items:center;font-weight:950;font-size:21px;flex:none}
+.ifood{background:#ea1d2c;color:#fff}.food99{background:#ffd400;color:#111}
+.info{flex:1}.info h2{margin:0 0 5px}.info p{margin:0;color:#6b7280;line-height:1.45}
+.status{font-weight:850;margin-top:9px}.ok{color:#16834b}.off{color:#777}.waiting{color:#b26a00}
+.primary{background:#ffd400!important;border-color:#d6b400!important}
+.danger{color:#a22535;background:#fff1f2!important}
+.wizard{margin-top:20px;border-top:1px solid #eee;padding-top:20px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px}
+.step{background:#f6f7f8;border-radius:10px;padding:10px;font-size:12px;font-weight:800;color:#777}
+.step.active{background:#fff3b0;color:#5c4c00;border:1px solid #eed15a}
+.step.done{background:#eaf8ef;color:#1c7542}
+.panel{background:#fafafa;border:1px solid #e5e7eb;border-radius:14px;padding:20px}
+.panel h3{margin-top:0}.panel p{color:#626b79;line-height:1.55}
+.code{font-family:Consolas,monospace;font-size:32px;letter-spacing:4px;font-weight:950;background:#101010;color:#ffd400;border-radius:12px;padding:18px;text-align:center;margin:16px 0}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.input{width:100%;padding:13px;border:1px solid #cfd4dc;border-radius:9px;font-size:17px;text-transform:uppercase;margin:8px 0 14px}
+.howto{background:#fff8d6;border:1px solid #f0d96a;border-radius:12px;padding:15px;margin-top:15px}
+.howto ol{margin:10px 0 0;padding-left:22px;line-height:1.7}
+.msg{padding:12px;border-radius:9px;margin-top:12px;display:none}
+.msg.okmsg{display:block;background:#eaf8ef;color:#176c3d}
+.msg.errmsg{display:block;background:#feecef;color:#962d3f}
+.small{font-size:12px;color:#777}
+@media(max-width:720px){.platform-row{align-items:flex-start;flex-wrap:wrap}.steps{grid-template-columns:1fr 1fr}.code{font-size:24px}}
+</style>
+</head>
 <body>
 <header class="top"><div class="brand">TURBOFLOW</div><button onclick="logout()">Sair</button></header>
 <main class="main">
 <a class="back" href="/">← Voltar ao Gestor de pedidos</a>
-<div class="head"><h1>Integrações da minha loja</h1><p>Conecte as plataformas que pertencem à sua operação.</p></div>
+<div class="head"><h1>Integrações da minha loja</h1><p>Conecte sua própria conta sem precisar passar senha para ninguém.</p></div>
 
-<div class="card">
- <div class="logo ifood">iFood</div>
- <div class="info"><h2>iFood</h2><p>Solicite a vinculação da sua loja ao TurboFlow. Você não precisa informar sua senha do iFood.</p><div id="ifoodStatus" class="status off">Verificando...</div></div>
- <div><button id="ifoodAction" class="primary">Solicitar vinculação</button></div>
-</div>
-
-<div class="card">
- <div class="logo food99">99</div>
- <div class="info"><h2>99Food</h2><p>A integração será liberada quando o acesso da API estiver aprovado.</p><div class="status off">Aguardando liberação</div></div>
- <div><button disabled>Em breve</button></div>
-</div>
-
-<div class="note"><b>Como funciona:</b> informe o CNPJ ou ID da sua loja do iFood. O TurboFlow registra a solicitação. Depois que o acesso for aprovado no Portal do Parceiro, o administrador confirma a vinculação da loja à sua conta.</div>
-
-<div id="ifoodRequestBox" class="card" style="display:none;align-items:flex-end">
-  <div class="info">
-    <h2>Solicitar vinculação iFood</h2>
-    <p>Informe o CNPJ da loja ou o merchant ID do iFood.</p>
-    <input id="ifoodIdentifier" placeholder="CNPJ ou Merchant ID" style="margin-top:12px;width:100%;padding:12px;border:1px solid #d0d5dd;border-radius:9px">
-    <div id="ifoodRequestMsg" class="status off"></div>
+<section class="platform-card">
+  <div class="platform-row">
+    <div class="logo ifood">iFood</div>
+    <div class="info">
+      <h2>iFood</h2>
+      <p>Vincule sua loja pelo código oficial do Portal do Parceiro.</p>
+      <div id="ifoodStatus" class="status off">Verificando...</div>
+    </div>
+    <button id="mainAction" class="btn primary">Conectar iFood</button>
   </div>
-  <div><button id="ifoodRequestSend" class="primary">Enviar solicitação</button></div>
-</div>
+
+  <div id="wizard" class="wizard" style="display:none">
+    <div class="steps">
+      <div id="s1" class="step active">1. Gerar código</div>
+      <div id="s2" class="step">2. Ativar no iFood</div>
+      <div id="s3" class="step">3. Colar autorização</div>
+      <div id="s4" class="step">4. Conectado</div>
+    </div>
+
+    <div id="startPanel" class="panel">
+      <h3>Conectar minha loja ao iFood</h3>
+      <p>O TurboFlow vai gerar um código temporário. Você usa esse código dentro do Portal do Parceiro iFood.</p>
+      <button id="generateCode" class="btn primary">Gerar código de ativação</button>
+      <div id="startMsg" class="msg"></div>
+    </div>
+
+    <div id="codePanel" class="panel" style="display:none">
+      <h3>Seu código de ativação</h3>
+      <div id="userCode" class="code">----</div>
+      <div class="howto">
+        <b>Agora faça assim:</b>
+        <ol>
+          <li>Abra o <b>Portal do Parceiro iFood</b>.</li>
+          <li>No menu, vá em <b>Serviços e soluções → Integrações</b>.</li>
+          <li>Clique em <b>Ativar aplicativo por código</b>.</li>
+          <li>Digite o código mostrado acima.</li>
+          <li>Autorize o aplicativo TurboFlow.</li>
+          <li>O iFood mostrará um <b>código de autorização</b>. Copie esse código.</li>
+          <li>Volte para esta tela e cole o código no campo abaixo.</li>
+        </ol>
+      </div>
+      <div class="actions" style="margin-top:14px">
+        <button id="openIfood" class="btn primary">Abrir Portal do iFood</button>
+        <button id="copyCode" class="btn">Copiar código</button>
+        <button id="newCode" class="btn">Gerar outro código</button>
+      </div>
+      <p id="codeExpiry" class="small"></p>
+
+      <hr style="border:0;border-top:1px solid #e5e7eb;margin:22px 0">
+      <h3>Digite o código de autorização</h3>
+      <input id="authorizationCode" class="input" placeholder="Ex.: ABCD-EFGH">
+      <button id="completeAuth" class="btn primary">Concluir conexão</button>
+      <div id="completeMsg" class="msg"></div>
+    </div>
+
+    <div id="waitingPanel" class="panel" style="display:none">
+      <h3>Autorização recebida ✅</h3>
+      <p>O iFood aceitou a autorização. Estamos aguardando a loja aparecer na API. Isso pode levar alguns minutos.</p>
+      <button id="checkMerchant" class="btn primary">Verificar novamente</button>
+      <div id="waitingMsg" class="msg"></div>
+    </div>
+
+    <div id="connectedPanel" class="panel" style="display:none">
+      <h3>iFood conectado ✅</h3>
+      <p><b>Loja:</b> <span id="merchantName">—</span></p>
+      <p><b>Merchant ID:</b> <span id="merchantId">—</span></p>
+      <p>Os pedidos desta loja já podem ser vinculados à conta TurboFlow.</p>
+      <button id="disconnect" class="btn danger">Desconectar iFood</button>
+    </div>
+  </div>
+</section>
+
+<section class="platform-card">
+  <div class="platform-row">
+    <div class="logo food99">99</div>
+    <div class="info"><h2>99Food</h2><p>A integração será liberada quando a API estiver aprovada.</p><div class="status off">Aguardando liberação</div></div>
+    <button class="btn" disabled>Em breve</button>
+  </div>
+</section>
 </main>
+
 <script>
-let integration=null;
-async function boot(){
- const me=await fetch("/api/auth/me").then(r=>r.json());
- if(!me.user)return location.href="/login.html";
- if(!me.access?.allowed)return location.href=me.access?.reason==="expired"?"/expired.html":"/pending.html";
+let integration={};
 
- const r=await fetch("/api/integrations/ifood");
- const d=await r.json();
- integration=d.integration||{};
-
- const st=document.getElementById("ifoodStatus");
- const btn=document.getElementById("ifoodAction");
- const box=document.getElementById("ifoodRequestBox");
-
- if(integration.connected){
-   st.className="status ok";
-   st.textContent="● Conectado"+(integration.merchantName?" — "+integration.merchantName:"");
-   btn.textContent="Desconectar";
-   btn.className="danger";
-   btn.onclick=async()=>{
-     if(!confirm("Desconectar o iFood desta loja?"))return;
-     await fetch("/api/integrations/ifood/disconnect",{method:"POST"});
-     location.reload();
-   };
-   return;
- }
-
- if(integration.linkStatus==="requested"){
-   st.className="status off";
-   st.textContent="● Solicitação enviada — aguardando aprovação/vinculação";
-   btn.textContent="Ver solicitação";
-   btn.className="primary";
-   box.style.display="flex";
-   document.getElementById("ifoodIdentifier").value=integration.requestedIdentifier||"";
- }else{
-   st.className="status off";
-   st.textContent=d.appConfigured?"● Pronto para solicitar vinculação":"● Aplicativo iFood ainda não configurado no servidor";
-   btn.textContent="Solicitar vinculação";
-   btn.className="primary";
-   btn.onclick=()=>{box.style.display=box.style.display==="none"?"flex":"none";};
- }
-
- document.getElementById("ifoodRequestSend").onclick=async()=>{
-   const identifier=document.getElementById("ifoodIdentifier").value.trim();
-   const msg=document.getElementById("ifoodRequestMsg");
-   if(!identifier){msg.textContent="Informe o CNPJ ou Merchant ID.";return;}
-   const rr=await fetch("/api/integrations/ifood/request",{
-     method:"POST",
-     headers:{"Content-Type":"application/json"},
-     body:JSON.stringify({identifier})
-   });
-   const dd=await rr.json().catch(()=>({}));
-   if(!rr.ok){msg.textContent="Não foi possível enviar a solicitação.";return;}
-   msg.className="status ok";
-   msg.textContent="Solicitação enviada. Aguarde a aprovação e a vinculação.";
-   setTimeout(()=>location.reload(),900);
- };
+function show(id){["startPanel","codePanel","waitingPanel","connectedPanel"].forEach(x=>document.getElementById(x).style.display=x===id?"block":"none")}
+function steps(n){
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById("s"+i);
+    el.className="step "+(i<n?"done":i===n?"active":"");
+  }
 }
+function msg(id,text,ok=false){
+  const el=document.getElementById(id);
+  el.textContent=text;
+  el.className="msg "+(ok?"okmsg":"errmsg");
+}
+async function api(path,body){
+  const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):"{}"});
+  const d=await r.json().catch(()=>({}));
+  return {r,d};
+}
+async function boot(){
+  const me=await fetch("/api/auth/me").then(r=>r.json());
+  if(!me.user)return location.href="/login.html";
+  if(!me.access?.allowed)return location.href=me.access?.reason==="expired"?"/expired.html":"/pending.html";
+
+  const r=await fetch("/api/integrations/ifood");
+  const d=await r.json();
+  integration=d.integration||{};
+
+  const st=document.getElementById("ifoodStatus");
+  const action=document.getElementById("mainAction");
+
+  if(integration.connected){
+    st.className="status ok";
+    st.textContent="● Conectado"+(integration.merchantName?" — "+integration.merchantName:"");
+    action.textContent="Ver conexão";
+    action.onclick=()=>{document.getElementById("wizard").style.display="block";show("connectedPanel");steps(4);fillConnected()};
+  }else if(integration.linkStatus==="authorized_waiting_merchant"){
+    st.className="status waiting";st.textContent="● Autorizado — aguardando loja";
+    action.textContent="Continuar";
+    action.onclick=()=>{document.getElementById("wizard").style.display="block";show("waitingPanel");steps(4)};
+  }else{
+    st.className="status off";st.textContent="● Não conectado";
+    action.onclick=()=>{document.getElementById("wizard").style.display="block";show("startPanel");steps(1)};
+  }
+}
+async function generate(){
+  const {r,d}=await api("/api/integrations/ifood/code/start");
+  if(!r.ok){msg("startMsg",d.message||"Não foi possível gerar o código.");return}
+  integration.userCode=d.userCode;
+  integration.verificationUrl=d.verificationUrl;
+  document.getElementById("userCode").textContent=d.userCode;
+  document.getElementById("codeExpiry").textContent="Este código é temporário. Se expirar, gere outro.";
+  show("codePanel");steps(2);
+}
+async function complete(){
+  const code=document.getElementById("authorizationCode").value.trim();
+  if(!code)return msg("completeMsg","Digite o código de autorização que o iFood mostrou.");
+  const {r,d}=await api("/api/integrations/ifood/code/complete",{authorizationCode:code});
+  if(!r.ok){msg("completeMsg",d.message||"Não foi possível concluir. Confira o código e tente novamente.");return}
+  if(d.waiting){show("waitingPanel");steps(4);return}
+  if(d.selectMerchant){
+    // 1 conta = 1 loja; se vierem várias, escolha explicitamente.
+    const options=d.merchants.map((m,i)=>`${i+1}. ${m.name||m.id} — ${m.id}`).join("\\n");
+    const choice=prompt("Mais de uma loja foi autorizada. Digite o número da loja:\\n"+options);
+    const selected=d.merchants[Number(choice)-1];
+    if(!selected)return;
+    const again=await api("/api/integrations/ifood/code/complete",{authorizationCode:code,merchantId:selected.id});
+    if(!again.r.ok)return msg("completeMsg",again.d.message||"Falha ao selecionar a loja.");
+  }
+  location.reload();
+}
+async function checkMerchant(){
+  const {r,d}=await api("/api/integrations/ifood/code/check");
+  if(!r.ok)return msg("waitingMsg",d.message||"Não foi possível verificar agora.");
+  if(!d.connected)return msg("waitingMsg","Ainda aguardando o iFood liberar a loja. Tente novamente em alguns minutos.");
+  location.reload();
+}
+function fillConnected(){
+ document.getElementById("merchantName").textContent=integration.merchantName||"Loja iFood";
+ document.getElementById("merchantId").textContent=integration.merchantId||"—";
+}
+document.getElementById("generateCode").onclick=generate;
+document.getElementById("newCode").onclick=generate;
+document.getElementById("copyCode").onclick=()=>navigator.clipboard?.writeText(document.getElementById("userCode").textContent);
+document.getElementById("openIfood").onclick=()=>window.open(integration.verificationUrl||"https://portal.ifood.com.br/apps","_blank");
+document.getElementById("completeAuth").onclick=complete;
+document.getElementById("checkMerchant").onclick=checkMerchant;
+document.getElementById("disconnect").onclick=async()=>{if(!confirm("Desconectar o iFood desta loja?"))return;await api("/api/integrations/ifood/disconnect");location.reload()};
 async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}
 boot();
-</script></body></html>
+</script>
+</body></html>

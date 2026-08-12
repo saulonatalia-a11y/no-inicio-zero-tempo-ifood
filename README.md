@@ -271,3 +271,17 @@ associar o merchant à sessão autenticada. Nenhuma senha do iFood deve ser soli
 - Impede vincular o mesmo Merchant ID a dois clientes.
 - `/api/orders` filtra pedidos pelo Merchant ID da conta autenticada.
 - Ações confirm/start/ready/dispatch verificam se o pedido pertence à loja do usuário.
+
+## v2.10 — iFood self-service por código
+Fluxo distribuído oficial:
+1. TurboFlow chama POST `/authentication/v1.0/oauth/userCode`.
+2. Cliente recebe `userCode` e URL de verificação.
+3. Cliente entra no Portal do Parceiro > Integrações > Ativar aplicativo por código.
+4. Cliente autoriza e recebe `authorizationCode`.
+5. Cliente cola o `authorizationCode` no TurboFlow.
+6. Servidor troca por `accessToken` + `refreshToken` usando o `authorizationCodeVerifier`.
+7. TurboFlow consulta `/merchant/v1.0/merchants` usando o token individual.
+8. Loja é vinculada automaticamente à conta.
+9. Refresh token é renovado automaticamente conforme `expiresIn`.
+
+Client ID e Client Secret permanecem exclusivamente no servidor.

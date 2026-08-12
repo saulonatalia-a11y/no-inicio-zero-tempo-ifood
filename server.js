@@ -235,6 +235,10 @@ function publicUser(user) {
     ifoodLinkStatus: user.ifoodLinkStatus || (user.ifoodConnected ? "connected" : "none"),
     ifoodRequestedIdentifier: user.ifoodRequestedIdentifier || "",
     ifoodRequestedAt: user.ifoodRequestedAt || null,
+    ifoodAuthMode: user.ifoodAuthMode || "",
+    ifoodUserCode: user.ifoodUserCode || "",
+    ifoodVerificationUrl: user.ifoodVerificationUrl || "",
+    ifoodCodeExpiresAt: user.ifoodCodeExpiresAt || null,
     role: user.role || "customer",
     status: user.status || "pending",
     planDays: Number(user.planDays || 0),
@@ -329,7 +333,11 @@ function ifoodCustomerConnection(user) {
     connectedAt: user?.ifoodConnectedAt || null,
     linkStatus: user?.ifoodLinkStatus || (user?.ifoodConnected ? "connected" : "none"),
     requestedIdentifier: user?.ifoodRequestedIdentifier || "",
-    requestedAt: user?.ifoodRequestedAt || null
+    requestedAt: user?.ifoodRequestedAt || null,
+    authMode: user?.ifoodAuthMode || "",
+    userCode: user?.ifoodUserCode || "",
+    verificationUrl: user?.ifoodVerificationUrl || "",
+    codeExpiresAt: user?.ifoodCodeExpiresAt || null
   };
 }
 
@@ -345,10 +353,128 @@ function clearIfoodCustomerConnection(user) {
   user.ifoodLinkStatus = "none";
   user.ifoodRequestedIdentifier = "";
   user.ifoodRequestedAt = null;
+  user.ifoodAuthMode = "";
+  user.ifoodUserCode = "";
+  user.ifoodAuthorizationCodeVerifier = "";
+  user.ifoodVerificationUrl = "";
+  user.ifoodCodeExpiresAt = null;
+  user.ifoodAccessToken = "";
+  user.ifoodRefreshToken = "";
+  user.ifoodTokenExpiresAt = null;
   user.updatedAt = new Date().toISOString();
   saveAuthData();
 }
 
+
+
+function formEncode(data) {
+  return new URLSearchParams(
+    Object.entries(data).filter(([,v]) => v !== undefined && v !== null && v !== "")
+  ).toString();
+}
+
+async function ifoodAuthForm(pathname, data) {
+  const response = await fetch(`https://merchant-api.ifood.com.br/authentication/v1.0${pathname}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Accept": "application/json"
+    },
+    body: formEncode(data)
+  });
+
+  const text = await response.text();
+  let payload = {};
+  try { payload = text ? JSON.parse(text) : {}; }
+  catch { payload = { raw: text }; }
+
+  if (!response.ok) {
+    const message =
+      payload?.error?.message ||
+      payload?.message ||
+      payload?.error_description ||
+      payload?.error ||
+      `iFood HTTP ${response.status}`;
+    const err = new Error(String(message));
+    err.status = response.status;
+    err.payload = payload;
+    throw err;
+  }
+  return payload;
+}
+
+function distributedTokenValid(user) {
+  if (!user?.ifoodAccessToken || !user?.ifoodTokenExpiresAt) return false;
+  return new Date(user.ifoodTokenExpiresAt).getTime() > Date.now() + 60_000;
+}
+
+async function refreshDistributedIfoodToken(user) {
+  if (!user?.ifoodRefreshToken) {
+    throw new Error("refresh_token_missing");
+  }
+  const payload = await ifoodAuthForm("/oauth/token", {
+    grantType: "refresh_token",
+    clientId: process.env.IFOOD_CLIENT_ID,
+    clientSecret: process.env.IFOOD_CLIENT_SECRET,
+    refreshToken: user.ifoodRefreshToken
+  });
+
+  const expiresIn = Math.max(60, Number(payload.expiresIn || 0));
+  user.ifoodAccessToken = payload.accessToken || payload.access_token || "";
+  user.ifoodRefreshToken = payload.refreshToken || payload.refresh_token || user.ifoodRefreshToken;
+  user.ifoodTokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+  user.updatedAt = new Date().toISOString();
+  saveAuthData();
+  return user.ifoodAccessToken;
+}
+
+async function getDistributedIfoodToken(user) {
+  if (distributedTokenValid(user)) return user.ifoodAccessToken;
+  return refreshDistributedIfoodToken(user);
+}
+
+async function ifoodUserRequest(user, pathname, options = {}) {
+  let token = await getDistributedIfoodToken(user);
+  const doFetch = async currentToken => {
+    const response = await fetch(`https://merchant-api.ifood.com.br${pathname}`, {
+      ...options,
+      headers: {
+        "Accept": "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {}),
+        "Authorization": `Bearer ${currentToken}`
+      }
+    });
+    return response;
+  };
+
+  let response = await doFetch(token);
+  if (response.status === 401 && user.ifoodRefreshToken) {
+    token = await refreshDistributedIfoodToken(user);
+    response = await doFetch(token);
+  }
+
+  const text = await response.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; }
+  catch { data = { raw: text }; }
+
+  if (!response.ok) {
+    const err = new Error(data?.message || data?.error || `iFood HTTP ${response.status}`);
+    err.status = response.status;
+    err.payload = data;
+    throw err;
+  }
+  return { data, status: response.status };
+}
+
+async function listUserIfoodMerchants(user) {
+  const { data } = await ifoodUserRequest(user, "/merchant/v1.0/merchants");
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.merchants)) return data.merchants;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+}
 
 function orderMerchantId(order) {
   return String(
@@ -1088,6 +1214,219 @@ async function handleApi(req, res, url) {
       ok: true,
       integration: ifoodCustomerConnection(user)
     });
+  }
+
+
+  // ===== iFood distribuído: conexão self-service por código =====
+  if (req.method === "POST" && url.pathname === "/api/integrations/ifood/code/start") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+
+    if (!process.env.IFOOD_CLIENT_ID || !process.env.IFOOD_CLIENT_SECRET) {
+      return json(res, 503, { ok: false, error: "ifood_app_not_configured" });
+    }
+
+    try {
+      // O endpoint oficial exige apenas clientId para gerar o userCode.
+      const payload = await ifoodAuthForm("/oauth/userCode", {
+        clientId: process.env.IFOOD_CLIENT_ID
+      });
+
+      const userCode = String(payload.userCode || "").trim();
+      const verifier = String(payload.authorizationCodeVerifier || "").trim();
+      const verificationUrl = String(
+        payload.verificationUrlComplete ||
+        payload.verificationUrl ||
+        "https://portal.ifood.com.br/apps"
+      ).trim();
+
+      if (!userCode || !verifier) {
+        return json(res, 502, {
+          ok: false,
+          error: "ifood_invalid_user_code_response",
+          details: payload
+        });
+      }
+
+      // Documentação atual: userCode normalmente vale 10 minutos.
+      const expiresIn = Math.max(60, Number(payload.expiresIn || 600));
+
+      user.ifoodAuthMode = "distributed";
+      user.ifoodLinkStatus = "code_generated";
+      user.ifoodUserCode = userCode;
+      user.ifoodAuthorizationCodeVerifier = verifier;
+      user.ifoodVerificationUrl = verificationUrl;
+      user.ifoodCodeExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+      user.updatedAt = new Date().toISOString();
+      saveAuthData();
+
+      return json(res, 200, {
+        ok: true,
+        userCode,
+        verificationUrl,
+        expiresAt: user.ifoodCodeExpiresAt
+      });
+    } catch (err) {
+      log("ifood-auth", `Falha ao gerar código de vínculo: ${err.message}`);
+      return json(res, 502, {
+        ok: false,
+        error: "ifood_user_code_failed",
+        message: err.message
+      });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/integrations/ifood/code/complete") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+
+    const body = await readJson(req);
+    const authorizationCode = String(body.authorizationCode || "").trim().toUpperCase();
+
+    if (!authorizationCode) {
+      return json(res, 400, { ok: false, error: "authorization_code_required" });
+    }
+    if (!user.ifoodAuthorizationCodeVerifier) {
+      return json(res, 409, {
+        ok: false,
+        error: "link_code_not_started",
+        message: "Gere um novo código de vínculo antes de concluir a conexão."
+      });
+    }
+    if (user.ifoodCodeExpiresAt && new Date(user.ifoodCodeExpiresAt).getTime() <= Date.now()) {
+      return json(res, 409, {
+        ok: false,
+        error: "link_code_expired",
+        message: "O código de vínculo expirou. Gere um novo código."
+      });
+    }
+
+    try {
+      const tokenPayload = await ifoodAuthForm("/oauth/token", {
+        grantType: "authorization_code",
+        clientId: process.env.IFOOD_CLIENT_ID,
+        clientSecret: process.env.IFOOD_CLIENT_SECRET,
+        authorizationCode,
+        authorizationCodeVerifier: user.ifoodAuthorizationCodeVerifier
+      });
+
+      const accessToken = String(tokenPayload.accessToken || tokenPayload.access_token || "");
+      const refreshToken = String(tokenPayload.refreshToken || tokenPayload.refresh_token || "");
+      const expiresIn = Math.max(60, Number(tokenPayload.expiresIn || 0));
+
+      if (!accessToken) {
+        return json(res, 502, {
+          ok: false,
+          error: "ifood_token_missing"
+        });
+      }
+
+      user.ifoodAccessToken = accessToken;
+      user.ifoodRefreshToken = refreshToken;
+      user.ifoodTokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+      // Descobre automaticamente a loja autorizada com o token do próprio cliente.
+      const merchants = await listUserIfoodMerchants(user);
+
+      if (!merchants.length) {
+        // Mantemos tokens para permitir nova verificação durante a propagação.
+        user.ifoodLinkStatus = "authorized_waiting_merchant";
+        user.ifoodConnected = false;
+        user.updatedAt = new Date().toISOString();
+        saveAuthData();
+
+        return json(res, 202, {
+          ok: true,
+          connected: false,
+          waiting: true,
+          message: "Autorização recebida. Aguardando a loja aparecer na API do iFood."
+        });
+      }
+
+      // Para 1 conta = 1 loja, normalmente haverá um merchant autorizado.
+      // Se houver mais de um, frontend pede a seleção.
+      if (merchants.length > 1 && !body.merchantId) {
+        user.ifoodLinkStatus = "select_merchant";
+        user.updatedAt = new Date().toISOString();
+        saveAuthData();
+        return json(res, 200, {
+          ok: true,
+          connected: false,
+          selectMerchant: true,
+          merchants: merchants.map(m => ({
+            id: String(m?.id || ""),
+            name: String(m?.name || "")
+          })).filter(m => m.id)
+        });
+      }
+
+      const selectedId = String(body.merchantId || merchants[0]?.id || "").trim();
+      const selected = merchants.find(m => String(m?.id || "") === selectedId) || merchants[0];
+
+      user.ifoodConnected = true;
+      user.ifoodLinkStatus = "connected";
+      user.ifoodMerchantId = String(selected?.id || selectedId);
+      user.ifoodMerchantName = String(selected?.name || user.storeName || "");
+      user.ifoodConnectedAt = new Date().toISOString();
+
+      // Não precisamos mais guardar os códigos temporários.
+      user.ifoodUserCode = "";
+      user.ifoodAuthorizationCodeVerifier = "";
+      user.ifoodVerificationUrl = "";
+      user.ifoodCodeExpiresAt = null;
+      user.updatedAt = new Date().toISOString();
+      saveAuthData();
+
+      return json(res, 200, {
+        ok: true,
+        connected: true,
+        integration: ifoodCustomerConnection(user)
+      });
+    } catch (err) {
+      log("ifood-auth", `Falha ao concluir código de autorização: ${err.message}`);
+      return json(res, 502, {
+        ok: false,
+        error: "ifood_authorization_failed",
+        message: err.message
+      });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/integrations/ifood/code/check") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+
+    if (!user.ifoodAccessToken) {
+      return json(res, 409, { ok: false, error: "authorization_not_completed" });
+    }
+
+    try {
+      const merchants = await listUserIfoodMerchants(user);
+      if (!merchants.length) {
+        return json(res, 200, { ok: true, connected: false, waiting: true });
+      }
+
+      const selected = merchants[0];
+      user.ifoodConnected = true;
+      user.ifoodLinkStatus = "connected";
+      user.ifoodMerchantId = String(selected?.id || "");
+      user.ifoodMerchantName = String(selected?.name || user.storeName || "");
+      user.ifoodConnectedAt = new Date().toISOString();
+      user.updatedAt = new Date().toISOString();
+      saveAuthData();
+
+      return json(res, 200, {
+        ok: true,
+        connected: true,
+        integration: ifoodCustomerConnection(user)
+      });
+    } catch (err) {
+      return json(res, 502, {
+        ok: false,
+        error: "ifood_check_failed",
+        message: err.message
+      });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/integrations/ifood/disconnect") {
