@@ -234,6 +234,7 @@ function publicUser(user) {
     ifoodMerchantName: user.ifoodMerchantName || "",
     ifoodLinkStatus: user.ifoodLinkStatus || (user.ifoodConnected ? "connected" : "none"),
     ifoodRequestedIdentifier: user.ifoodRequestedIdentifier || "",
+    ifoodRequestedMerchantId: user.ifoodRequestedMerchantId || "",
     ifoodRequestedAt: user.ifoodRequestedAt || null,
     ifoodAuthMode: user.ifoodAuthMode || "",
     ifoodUserCode: user.ifoodUserCode || "",
@@ -333,6 +334,7 @@ function ifoodCustomerConnection(user) {
     connectedAt: user?.ifoodConnectedAt || null,
     linkStatus: user?.ifoodLinkStatus || (user?.ifoodConnected ? "connected" : "none"),
     requestedIdentifier: user?.ifoodRequestedIdentifier || "",
+    requestedMerchantId: user?.ifoodRequestedMerchantId || "",
     requestedAt: user?.ifoodRequestedAt || null,
     authMode: user?.ifoodAuthMode || "",
     userCode: user?.ifoodUserCode || "",
@@ -352,6 +354,7 @@ function clearIfoodCustomerConnection(user) {
   user.ifoodConnectedAt = null;
   user.ifoodLinkStatus = "none";
   user.ifoodRequestedIdentifier = "";
+  user.ifoodRequestedMerchantId = "";
   user.ifoodRequestedAt = null;
   user.ifoodAuthMode = "";
   user.ifoodUserCode = "";
@@ -1439,6 +1442,37 @@ async function handleApi(req, res, url) {
         message: err.message
       });
     }
+  }
+
+
+  // v2.11 — solicitação iFood pelo ID da loja (fluxo centralizado)
+  if (req.method === "POST" && url.pathname === "/api/integrations/ifood/merchant-request") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+
+    const body = await readJson(req);
+    const merchantId = String(body.merchantId || "").trim();
+
+    if (!merchantId) {
+      return json(res, 400, {
+        ok: false,
+        error: "merchant_id_required",
+        message: "Informe o ID da sua loja no iFood."
+      });
+    }
+
+    user.ifoodRequestedMerchantId = merchantId;
+    user.ifoodRequestedIdentifier = merchantId;
+    user.ifoodLinkStatus = "requested";
+    user.ifoodRequestedAt = new Date().toISOString();
+    user.updatedAt = new Date().toISOString();
+    saveAuthData();
+
+    return json(res, 200, {
+      ok: true,
+      message: "Solicitação recebida.",
+      integration: ifoodCustomerConnection(user)
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/integrations/ifood/disconnect") {

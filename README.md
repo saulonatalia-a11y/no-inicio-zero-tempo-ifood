@@ -292,3 +292,11 @@ Client ID e Client Secret permanecem exclusivamente no servidor.
 - Corrige botões cortados e tabela espremida.
 - Traduz `Grant type not authorized for client` para orientação amigável.
 - O fluxo por código permanece implementado, mas requer credenciais de um app iFood do tipo Distribuído.
+
+## v2.11 — Solicitação iFood pelo ID da loja
+- Remove o fluxo de geração de código da interface do cliente.
+- Cliente informa o ID da própria loja no iFood e envia a solicitação.
+- Solicitação fica salva na conta do cliente.
+- Cliente vê status "Aguardando autorização".
+- Admin vê o ID solicitado e pode copiá-lo com um clique.
+- Mantém o modelo centralizado atual do aplicativo iFood.

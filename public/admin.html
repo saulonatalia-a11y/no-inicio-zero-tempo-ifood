@@ -87,6 +87,7 @@ function status(u){
 function label(s){return {pending:"Aguardando",active:"Ativo",expiring:"Vencendo",expired:"Vencido",blocked:"Bloqueado"}[s]||s}
 function ifood(u){
   if(u.ifoodConnected)return `<b class="ifood-ok">● Conectado</b>${u.ifoodMerchantName?`<br><span class="muted">${esc(u.ifoodMerchantName)}</span>`:""}`;
+  if(u.ifoodLinkStatus==="requested")return `<b class="ifood-wait">● Solicitação pendente</b><br><span class="muted">ID: ${esc(u.ifoodRequestedMerchantId||u.ifoodRequestedIdentifier||"—")}</span>`;
   if(["code_generated","authorized_waiting_merchant","select_merchant"].includes(u.ifoodLinkStatus))return `<b class="ifood-wait">● Configurando</b>`;
   return `<b class="ifood-off">● Não conectado</b>`;
 }
@@ -113,6 +114,7 @@ function render(){
       <div class="actions">
         <select id="days-${u.id}"><option value="7">7 dias</option><option value="30" selected>30 dias</option><option value="90">90 dias</option></select>
         <button class="primary" onclick="activate('${u.id}')">${s==="expired"?"Renovar":"Ativar / adicionar dias"}</button>
+        ${u.ifoodLinkStatus==="requested" ? `<button class="secondary" onclick="copyIfoodId('${esc(u.ifoodRequestedMerchantId||u.ifoodRequestedIdentifier||"")}')">Copiar ID iFood</button>` : ""}
         ${u.status==="blocked"?`<button class="secondary" onclick="activate('${u.id}')">Liberar</button>`:`<button class="secondary" onclick="blockUser('${u.id}')">Bloquear</button>`}
         <button class="danger" onclick="deleteUser('${u.id}','${esc(u.name).replace(/'/g,"&#39;")}')">Excluir cliente</button>
       </div>
@@ -142,6 +144,11 @@ async function deleteUser(id,name){
   const r=await fetch(`/api/admin/users/${id}`,{method:"DELETE"});
   if(!r.ok)return alert("Não foi possível excluir o cliente.");
   load();
+}
+async function copyIfoodId(id){
+  if(!id)return alert("Este cliente não informou o ID.");
+  try{await navigator.clipboard.writeText(id);alert("ID do iFood copiado.");}
+  catch{prompt("Copie o ID:",id);}
 }
 async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}
 load();
