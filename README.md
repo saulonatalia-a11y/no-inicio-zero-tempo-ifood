@@ -204,3 +204,22 @@ Nunca publique seu `.env`. O Client Secret deve ficar apenas como variável de a
 
 ### Importante
 Nesta fase os cadastros ficam em `auth-data.json`. Para vender em produção, antes de colocar vários clientes, migre este armazenamento para PostgreSQL ou outro banco persistente. Em serviços com filesystem efêmero, arquivos locais podem ser perdidos após recriações/deploys.
+
+
+## v2.5 — Dias restantes e alerta de vencimento
+- Mostra o plano e os dias restantes no menu lateral.
+- Exibe a data de vencimento.
+- Quando faltar exatamente 1 dia, mostra alerta no menu lateral e banner no topo.
+- O alerta pode ser fechado durante a sessão.
+- Botão "Renovar plano" informa que a renovação é feita manualmente com o TurboFlow.
+
+
+## v2.6 — Administração de clientes
+- Cadastro passa a pedir telefone/WhatsApp.
+- Painel administrativo mostra telefone do cliente.
+- Filtros: Todos, Pendentes, Ativos, Vencendo em até 3 dias, Vencidos e Bloqueados.
+- Contadores de clientes vencendo e vencidos.
+- Mostra quantos dias faltam para cada plano.
+- Botão Excluir cliente com confirmação.
+- Endpoint DELETE administrativo remove cliente e sessões.
+- Estrutura preparada para futura automação de cobrança via WhatsApp.

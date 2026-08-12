@@ -485,3 +485,105 @@ input[type="checkbox"]{
   margin-top:5px;
   margin-bottom:2px;
 }
+
+
+/* v2.5 — Plano no menu lateral + alerta de vencimento */
+.plan-sidebar-card{
+  margin:14px 13px 14px;
+  padding:13px 14px;
+  border:1px solid #ffd400;
+  border-radius:12px;
+  background:#111;
+  color:#fff;
+}
+.plan-sidebar-label{
+  font-size:12px;
+  color:#c8c8c8;
+  margin-bottom:4px;
+}
+.plan-sidebar-main{
+  font-weight:800;
+  font-size:14px;
+  margin-bottom:7px;
+}
+.plan-sidebar-days{
+  font-size:14px;
+  margin-bottom:6px;
+}
+.plan-sidebar-days strong{
+  color:#ffd400;
+  font-size:18px;
+}
+.plan-sidebar-date{
+  font-size:12px;
+  color:#b8b8b8;
+}
+.plan-sidebar-warning{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid #333;
+  color:#ff6868;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.35;
+}
+
+.plan-expiry-banner{
+  position:relative;
+  margin:18px 24px 0 230px;
+  min-height:74px;
+  padding:15px 58px 15px 18px;
+  border:1px solid #ffb6b6;
+  border-radius:14px;
+  background:#fff5f5;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  color:#171717;
+  z-index:20;
+}
+.plan-expiry-icon{
+  font-size:30px;
+  color:#ff4c4c;
+}
+.plan-expiry-copy{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  flex:1;
+}
+.plan-expiry-copy strong{
+  font-size:16px;
+}
+.plan-expiry-copy strong span{
+  color:#d90000;
+}
+.plan-expiry-copy > span{
+  color:#666;
+  font-size:13px;
+}
+#renewPlanBtn{
+  background:#ffd400;
+  border:0;
+  border-radius:9px;
+  padding:11px 16px;
+  font-weight:900;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.plan-expiry-close{
+  position:absolute;
+  right:14px;
+  top:10px;
+  border:0;
+  background:transparent;
+  color:#e65b5b;
+  font-size:24px;
+  cursor:pointer;
+}
+@media(max-width:850px){
+  .plan-expiry-banner{
+    margin:12px;
+    flex-wrap:wrap;
+  }
+}

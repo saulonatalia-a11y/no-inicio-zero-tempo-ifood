@@ -7,6 +7,16 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <div id="planExpiryBanner" class="plan-expiry-banner" style="display:none">
+    <div class="plan-expiry-icon">⚠</div>
+    <div class="plan-expiry-copy">
+      <strong>Atenção: seu plano expira em <span id="planExpiryBannerDays">1 dia</span>!</strong>
+      <span>Renove seu plano para evitar a interrupção dos serviços.</span>
+    </div>
+    <button id="renewPlanBtn" type="button">Renovar plano</button>
+    <button id="dismissPlanBanner" type="button" class="plan-expiry-close">×</button>
+  </div>
+
   <aside class="sidebar">
     <div class="brand brand-turboflow">
       <div class="brand-logo-wrap">
@@ -24,7 +34,21 @@
     </div>
 
     <nav>
-      <button class="nav-item active" data-view="orders">Gestor de pedidos</button>
+      
+        <div id="planSidebarCard" class="plan-sidebar-card" style="display:none">
+          <div class="plan-sidebar-label">Plano</div>
+          <div class="plan-sidebar-main">
+            <span id="planNameSidebar">—</span>
+          </div>
+          <div class="plan-sidebar-days">
+            Vence em: <strong id="planDaysSidebar">—</strong>
+          </div>
+          <div id="planDateSidebar" class="plan-sidebar-date">—</div>
+          <div id="planOneDaySidebar" class="plan-sidebar-warning" style="display:none">
+            ⚠ Atenção: seu plano expira em 1 dia!
+          </div>
+        </div>
+<button class="nav-item active" data-view="orders">Gestor de pedidos</button>
       <button class="nav-item" data-view="history">Histórico</button>
       <button class="nav-item" data-view="integrations">Integrações</button>
       <button class="nav-item" data-view="settings">Configurações</button>

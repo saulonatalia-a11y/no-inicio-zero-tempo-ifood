@@ -221,8 +221,14 @@ function publicUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
+    phone: user.phone || "",
     storeName: user.storeName || "",
     cnpj: user.cnpj || "",
+    storeConfigured: Boolean(user.storeConfigured),
+    storePhone: user.storePhone || "",
+    storeAddress: user.storeAddress || "",
+    storeCity: user.storeCity || "",
+    storeState: user.storeState || "",
     role: user.role || "customer",
     status: user.status || "pending",
     planDays: Number(user.planDays || 0),
@@ -861,6 +867,7 @@ async function handleApi(req, res, url) {
     const name = String(body.name || "").trim();
     const email = normalizeEmail(body.email);
     const password = String(body.password || "");
+    const phone = String(body.phone || "").trim();
     const storeName = String(body.storeName || "").trim();
     const cnpj = String(body.cnpj || "").trim();
 
@@ -876,6 +883,7 @@ async function handleApi(req, res, url) {
       id: crypto.randomUUID(),
       name,
       email,
+      phone,
       passwordSalt: p.salt,
       passwordHash: p.hash,
       storeName,
@@ -937,6 +945,56 @@ async function handleApi(req, res, url) {
     });
   }
 
+
+  if (req.method === "GET" && url.pathname === "/api/store") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+    return json(res, 200, {
+      ok: true,
+      store: {
+        configured: Boolean(user.storeConfigured),
+        name: user.storeName || "",
+        cnpj: user.cnpj || "",
+        phone: user.storePhone || "",
+        address: user.storeAddress || "",
+        number: user.storeNumber || "",
+        complement: user.storeComplement || "",
+        neighborhood: user.storeNeighborhood || "",
+        city: user.storeCity || "",
+        state: user.storeState || "",
+        zipCode: user.storeZipCode || "",
+        contactName: user.storeContactName || user.name || "",
+        contactPhone: user.storeContactPhone || ""
+      }
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/store") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+    const body = await readJson(req);
+    const name = String(body.name || "").trim();
+    if (!name) return json(res, 400, { ok: false, error: "store_name_required" });
+
+    user.storeName = name;
+    user.cnpj = String(body.cnpj || "").trim();
+    user.storePhone = String(body.phone || "").trim();
+    user.storeAddress = String(body.address || "").trim();
+    user.storeNumber = String(body.number || "").trim();
+    user.storeComplement = String(body.complement || "").trim();
+    user.storeNeighborhood = String(body.neighborhood || "").trim();
+    user.storeCity = String(body.city || "").trim();
+    user.storeState = String(body.state || "").trim().toUpperCase();
+    user.storeZipCode = String(body.zipCode || "").trim();
+    user.storeContactName = String(body.contactName || user.name || "").trim();
+    user.storeContactPhone = String(body.contactPhone || "").trim();
+    user.storeConfigured = true;
+    user.updatedAt = new Date().toISOString();
+    saveAuthData();
+
+    return json(res, 200, { ok: true, user: publicUser(user) });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/admin/users") {
     const admin = requireAdmin(req, res);
     if (!admin) return;
@@ -947,6 +1005,24 @@ async function handleApi(req, res, url) {
         .map(publicUser)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     });
+  }
+
+
+  const adminDeleteUserMatch = url.pathname.match(/^\/api\/admin\/users\/([^/]+)$/);
+  if (req.method === "DELETE" && adminDeleteUserMatch) {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+
+    const userId = decodeURIComponent(adminDeleteUserMatch[1]);
+    const user = authData.users.find(u => u.id === userId && u.role !== "admin");
+    if (!user) return json(res, 404, { ok: false, error: "user_not_found" });
+
+    // Remove também sessões ligadas ao cliente.
+    authData.sessions = authData.sessions.filter(s => s.userId !== userId);
+    authData.users = authData.users.filter(u => u.id !== userId);
+    saveAuthData();
+
+    return json(res, 200, { ok: true, deletedUserId: userId });
   }
 
   const adminPlanMatch = url.pathname.match(/^\/api\/admin\/users\/([^/]+)\/plan$/);

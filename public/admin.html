@@ -1,14 +1,238 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TurboFlow Admin</title>
-<style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}.top{background:#0b0b0b;color:#fff;padding:22px 28px;display:flex;justify-content:space-between;align-items:center}.brand{color:#ffd400;font-weight:950;font-size:25px}.top button{background:#252525;color:#fff;border:1px solid #444;padding:9px 13px;border-radius:8px}.main{max-width:1200px;margin:28px auto;padding:0 18px}.head{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:20px}.stats{display:flex;gap:10px}.stat{background:#fff;border:1px solid #ddd;border-radius:12px;padding:13px 16px}.stat b{font-size:22px}.card{background:#fff;border:1px solid #ddd;border-radius:16px;overflow:hidden}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px;border-bottom:1px solid #eee;font-size:13px}th{background:#fafafa}.status{padding:5px 8px;border-radius:999px;font-weight:800;font-size:11px}.pending{background:#fff1bf;color:#7d6400}.active{background:#e8f7ee;color:#237243}.expired{background:#feecef;color:#a13243}.blocked{background:#eee;color:#555}.actions{display:flex;gap:6px;flex-wrap:wrap}.actions button,.actions select{padding:7px 9px;border:1px solid #d0d0d0;border-radius:7px;background:#fff}.actions .go{background:#ffd400;border-color:#ddba00;font-weight:850}@media(max-width:850px){.card{overflow:auto}table{min-width:980px}}</style></head>
-<body><header class="top"><div><div class="brand">TURBOFLOW ADMIN</div><small>Clientes e planos</small></div><button onclick="logout()">Sair</button></header>
-<main class="main"><div class="head"><div><h1>Clientes</h1><p>Cadastros aguardando aprovação, planos ativos e vencimentos.</p></div><div class="stats"><div class="stat"><b id="stPending">0</b><br><small>Pendentes</small></div><div class="stat"><b id="stActive">0</b><br><small>Ativos</small></div><div class="stat"><b id="stExpired">0</b><br><small>Vencidos</small></div></div></div>
-<div class="card"><table><thead><tr><th>Cliente</th><th>Loja</th><th>Status</th><th>Plano</th><th>Vencimento</th><th>Cadastro</th><th>Ações</th></tr></thead><tbody id="rows"></tbody></table></div></main>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TurboFlow Admin</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
+.top{background:#0b0b0b;color:#fff;padding:22px 28px;display:flex;justify-content:space-between;align-items:center}
+.brand{color:#ffd400;font-weight:950;font-size:25px}
+.top button{background:#252525;color:#fff;border:1px solid #444;padding:9px 13px;border-radius:8px;cursor:pointer}
+.main{max-width:1320px;margin:28px auto;padding:0 18px}
+.head{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:18px}
+.head h1{margin:0 0 6px}.head p{margin:0;color:#666}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{background:#fff;border:1px solid #ddd;border-radius:12px;padding:13px 16px;min-width:94px}
+.stat b{font-size:22px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.filters button{border:1px solid #d5d5d5;background:#fff;border-radius:999px;padding:9px 13px;font-weight:800;cursor:pointer}
+.filters button.active{background:#ffd400;border-color:#d7b400}
+.card{background:#fff;border:1px solid #ddd;border-radius:16px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:13px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top}
+th{background:#fafafa;white-space:nowrap}
+.status{padding:5px 8px;border-radius:999px;font-weight:800;font-size:11px;display:inline-block}
+.pending{background:#fff1bf;color:#7d6400}
+.active{background:#e8f7ee;color:#237243}
+.expired{background:#feecef;color:#a13243}
+.expiring{background:#fff0df;color:#a45a00}
+.blocked{background:#eee;color:#555}
+.phone{font-weight:800;color:#333}
+.days-left{font-weight:800}
+.actions{display:flex;gap:6px;flex-wrap:wrap;min-width:260px}
+.actions button,.actions select{padding:7px 9px;border:1px solid #d0d0d0;border-radius:7px;background:#fff;cursor:pointer}
+.actions .go{background:#ffd400;border-color:#ddba00;font-weight:850}
+.actions .danger{background:#fff0f1;border-color:#efb7be;color:#a52436;font-weight:800}
+.empty{padding:35px;text-align:center;color:#888}
+@media(max-width:1000px){.card{overflow:auto}table{min-width:1120px}.head{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div><div class="brand">TURBOFLOW ADMIN</div><small>Clientes, planos e renovações</small></div>
+  <button onclick="logout()">Sair</button>
+</header>
+
+<main class="main">
+  <div class="head">
+    <div>
+      <h1>Clientes</h1>
+      <p>Controle de cadastros, vencimentos e futuras cobranças pelo WhatsApp.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="stPending">0</b><br><small>Pendentes</small></div>
+      <div class="stat"><b id="stActive">0</b><br><small>Ativos</small></div>
+      <div class="stat"><b id="stExpiring">0</b><br><small>Vencendo</small></div>
+      <div class="stat"><b id="stExpired">0</b><br><small>Vencidos</small></div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <button class="active" data-filter="all">Todos</button>
+    <button data-filter="pending">Pendentes</button>
+    <button data-filter="active">Ativos</button>
+    <button data-filter="expiring">Vencendo em até 3 dias</button>
+    <button data-filter="expired">Vencidos</button>
+    <button data-filter="blocked">Bloqueados</button>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Telefone / WhatsApp</th>
+          <th>Loja</th>
+          <th>Status</th>
+          <th>Plano</th>
+          <th>Faltam</th>
+          <th>Vencimento</th>
+          <th>Cadastro</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty" style="display:none">Nenhum cliente nesse filtro.</div>
+  </div>
+</main>
+
 <script>
+let allUsers=[];
+let activeFilter="all";
+
 const fmt=d=>d?new Date(d).toLocaleString("pt-BR"):"—";
-async function load(){const r=await fetch("/api/admin/users");if(r.status===401||r.status===403)return location.href="/login.html";const d=await r.json();const users=d.users||[];let p=0,a=0,e=0;document.querySelector("#rows").innerHTML=users.map(u=>{let st=u.status;if(u.status==="active"&&u.expired)st="expired";if(st==="pending")p++;else if(st==="active")a++;else if(st==="expired")e++;return `<tr><td><b>${esc(u.name)}</b><br>${esc(u.email)}</td><td>${esc(u.storeName||"—")}<br><small>${esc(u.cnpj||"")}</small></td><td><span class="status ${st}">${st==="pending"?"Aguardando":st==="active"?"Ativo":st==="expired"?"Vencido":"Bloqueado"}</span></td><td>${u.planDays?u.planDays+" dias":"—"}</td><td>${fmt(u.planExpiresAt)}</td><td>${fmt(u.createdAt)}</td><td><div class="actions"><select id="days-${u.id}"><option value="7">7 dias</option><option value="30" selected>30 dias</option><option value="90">90 dias</option></select><button class="go" onclick="plan('${u.id}')">${st==="expired"?"Renovar":"Ativar"}</button><button onclick="blockUser('${u.id}')">Bloquear</button></div></td></tr>`}).join("");stPending.textContent=p;stActive.textContent=a;stExpired.textContent=e}
-function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-async function plan(id){const days=Number(document.querySelector("#days-"+id).value);await fetch(`/api/admin/users/${id}/plan`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"activate",days})});load()}
-async function blockUser(id){if(!confirm("Bloquear este cliente?"))return;await fetch(`/api/admin/users/${id}/plan`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"block"})});load()}
-async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}
+const fmtDate=d=>d?new Date(d).toLocaleDateString("pt-BR"):"—";
+
+function esc(v){
+  return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+function daysRemaining(u){
+  if(!u.planExpiresAt) return null;
+  return Math.max(0,Math.ceil((new Date(u.planExpiresAt).getTime()-Date.now())/86400000));
+}
+
+function computedStatus(u){
+  if(u.status==="blocked") return "blocked";
+  if(u.status==="pending") return "pending";
+  if(u.status==="active"){
+    const d=daysRemaining(u);
+    if(u.expired || d===0) return "expired";
+    if(d!=null && d<=3) return "expiring";
+    return "active";
+  }
+  return u.status||"pending";
+}
+
+function statusLabel(st){
+  return {
+    pending:"Aguardando",
+    active:"Ativo",
+    expiring:"Vencendo",
+    expired:"Vencido",
+    blocked:"Bloqueado"
+  }[st]||st;
+}
+
+function render(){
+  let p=0,a=0,x=0,e=0;
+  allUsers.forEach(u=>{
+    const st=computedStatus(u);
+    if(st==="pending")p++;
+    else if(st==="active")a++;
+    else if(st==="expiring"){x++;a++;}
+    else if(st==="expired")e++;
+  });
+
+  stPending.textContent=p;
+  stActive.textContent=a;
+  stExpiring.textContent=x;
+  stExpired.textContent=e;
+
+  const filtered=allUsers.filter(u=>{
+    const st=computedStatus(u);
+    if(activeFilter==="all") return true;
+    if(activeFilter==="active") return st==="active";
+    return st===activeFilter;
+  });
+
+  rows.innerHTML=filtered.map(u=>{
+    const st=computedStatus(u);
+    const days=daysRemaining(u);
+    const daysText=days==null?"—":days===0?"Vencido":`${days} ${days===1?"dia":"dias"}`;
+    return `<tr>
+      <td><b>${esc(u.name)}</b><br>${esc(u.email)}</td>
+      <td><span class="phone">${esc(u.phone||"—")}</span></td>
+      <td>${esc(u.storeName||"—")}<br><small>${esc(u.cnpj||"")}</small><br><small>${u.storeConfigured?"✅ Loja configurada":"⚠️ Loja pendente"}</small></td>
+      <td><span class="status ${st}">${statusLabel(st)}</span></td>
+      <td>${u.planDays?u.planDays+" dias":"—"}</td>
+      <td><span class="days-left">${daysText}</span></td>
+      <td>${fmtDate(u.planExpiresAt)}</td>
+      <td>${fmt(u.createdAt)}</td>
+      <td>
+        <div class="actions">
+          <select id="days-${u.id}">
+            <option value="7">7 dias</option>
+            <option value="30" selected>30 dias</option>
+            <option value="90">90 dias</option>
+          </select>
+          <button class="go" onclick="plan('${u.id}')">${st==="expired"?"Renovar":"Ativar"}</button>
+          <button onclick="blockUser('${u.id}')">Bloquear</button>
+          <button class="danger" onclick="deleteUser('${u.id}','${esc(u.name).replace(/'/g,"&#39;")}')">Excluir</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  empty.style.display=filtered.length?"none":"block";
+}
+
+async function load(){
+  const r=await fetch("/api/admin/users");
+  if(r.status===401||r.status===403)return location.href="/login.html";
+  const d=await r.json();
+  allUsers=d.users||[];
+  render();
+}
+
+document.querySelectorAll(".filters button").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll(".filters button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFilter=btn.dataset.filter;
+    render();
+  };
+});
+
+async function plan(id){
+  const days=Number(document.querySelector("#days-"+id).value);
+  await fetch(`/api/admin/users/${id}/plan`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"activate",days})
+  });
+  load();
+}
+
+async function blockUser(id){
+  if(!confirm("Bloquear este cliente? Ele ficará sem acesso até você liberar novamente."))return;
+  await fetch(`/api/admin/users/${id}/plan`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"block"})
+  });
+  load();
+}
+
+async function deleteUser(id,name){
+  if(!confirm(`Excluir definitivamente o cliente "${name}"?\\n\\nEssa ação remove o cadastro e as sessões desse cliente.`))return;
+  const r=await fetch(`/api/admin/users/${id}`,{method:"DELETE"});
+  if(!r.ok){
+    alert("Não foi possível excluir o cliente.");
+    return;
+  }
+  load();
+}
+
+async function logout(){
+  await fetch("/api/auth/logout",{method:"POST"});
+  location.href="/login.html";
+}
+
 load();
-</script></body></html>
+</script>
+</body>
+</html>

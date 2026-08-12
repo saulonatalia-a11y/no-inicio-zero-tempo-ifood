@@ -9,6 +9,11 @@ async function turboFlowAccessGate(){
       location.href = d.access?.reason==="expired" ? "/expired.html" : "/pending.html";
       return false;
     }
+    if(!d.user?.storeConfigured){
+      location.href="/store.html";
+      return false;
+    }
+    tfRenderPlanStatus(d.user);
     return true;
   }catch{
     location.href="/login.html";
@@ -942,3 +947,79 @@ function refreshReceiptPreviewFromControls(){
   document.getElementById(id)?.addEventListener("change", refreshReceiptPreviewFromControls);
   document.getElementById(id)?.addEventListener("input", refreshReceiptPreviewFromControls);
 });
+
+
+function tfPlanDaysRemaining(expiresAt){
+  if(!expiresAt) return null;
+  const end = new Date(expiresAt).getTime();
+  if(!Number.isFinite(end)) return null;
+  const diff = end - Date.now();
+  return Math.max(0, Math.ceil(diff / 86400000));
+}
+
+function tfPlanLabel(days){
+  if(days === 7) return "7 Dias";
+  if(days === 30) return "30 Dias";
+  if(days === 90) return "3 Meses";
+  if(days) return `${days} Dias`;
+  return "—";
+}
+
+function tfFormatPlanDate(value){
+  if(!value) return "—";
+  try{
+    return new Date(value).toLocaleDateString("pt-BR");
+  }catch{
+    return "—";
+  }
+}
+
+function tfRenderPlanStatus(user){
+  if(!user || user.role === "admin") return;
+
+  const remaining = tfPlanDaysRemaining(user.planExpiresAt);
+  const card = document.getElementById("planSidebarCard");
+  if(card) card.style.display = "block";
+
+  const nameEl = document.getElementById("planNameSidebar");
+  const daysEl = document.getElementById("planDaysSidebar");
+  const dateEl = document.getElementById("planDateSidebar");
+  const warningEl = document.getElementById("planOneDaySidebar");
+
+  if(nameEl) nameEl.textContent = `Plano: ${tfPlanLabel(Number(user.planDays || 0))}`;
+  if(daysEl){
+    daysEl.textContent = remaining == null ? "—" : `${remaining} ${remaining === 1 ? "dia" : "dias"}`;
+  }
+  if(dateEl) dateEl.textContent = tfFormatPlanDate(user.planExpiresAt);
+
+  const isOneDay = remaining === 1;
+  if(warningEl) warningEl.style.display = isOneDay ? "block" : "none";
+
+  const banner = document.getElementById("planExpiryBanner");
+  if(banner){
+    const dismissed = sessionStorage.getItem("tf_plan_banner_dismissed") === String(user.planExpiresAt || "");
+    banner.style.display = (isOneDay && !dismissed) ? "flex" : "none";
+  }
+
+  const bannerDays = document.getElementById("planExpiryBannerDays");
+  if(bannerDays && remaining != null){
+    bannerDays.textContent = `${remaining} ${remaining === 1 ? "dia" : "dias"}`;
+  }
+
+  const dismiss = document.getElementById("dismissPlanBanner");
+  if(dismiss && !dismiss.dataset.bound){
+    dismiss.dataset.bound = "1";
+    dismiss.addEventListener("click", ()=>{
+      sessionStorage.setItem("tf_plan_banner_dismissed", String(user.planExpiresAt || ""));
+      if(banner) banner.style.display = "none";
+    });
+  }
+
+  const renew = document.getElementById("renewPlanBtn");
+  if(renew && !renew.dataset.bound){
+    renew.dataset.bound = "1";
+    renew.addEventListener("click", ()=>{
+      alert("Para renovar seu plano, entre em contato com o TurboFlow pelo WhatsApp. Após a confirmação do pagamento, seu acesso será renovado sem perder seus dados.");
+    });
+  }
+}
