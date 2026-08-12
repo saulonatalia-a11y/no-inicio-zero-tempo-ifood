@@ -261,3 +261,13 @@ associar o merchant à sessão autenticada. Nenhuma senha do iFood deve ser soli
 - Removida rota Express `app.get('/api/automation/capabilities')` incompatível com o servidor HTTP nativo do projeto.
 - Corrige `ReferenceError: app is not defined` no deploy.
 - Mantidas as funções da v2.9: Minha Loja, integração iFood por cliente e painel de automação.
+
+## v2.9.3 — iFood centralizado / vinculação segura
+- Remove dependência da rota inexistente `/api/ifood/auth/start`.
+- Cliente envia uma solicitação de vinculação com CNPJ ou Merchant ID.
+- Admin visualiza a solicitação no painel.
+- Admin informa o Merchant ID somente após a aprovação do acesso no Portal do Parceiro.
+- Antes de vincular, o servidor consulta `/merchant/v1.0/merchants` e confirma que o Merchant ID está autorizado para o aplicativo.
+- Impede vincular o mesmo Merchant ID a dois clientes.
+- `/api/orders` filtra pedidos pelo Merchant ID da conta autenticada.
+- Ações confirm/start/ready/dispatch verificam se o pedido pertence à loja do usuário.

@@ -19,8 +19,8 @@ button{padding:11px 15px;border-radius:9px;border:1px solid #d0d5dd;background:#
 
 <div class="card">
  <div class="logo ifood">iFood</div>
- <div class="info"><h2>iFood</h2><p>Conecte a sua própria loja ao TurboFlow. Você não precisa informar sua senha do iFood ao administrador.</p><div id="ifoodStatus" class="status off">Verificando...</div></div>
- <div><button id="ifoodAction" class="primary">Conectar iFood</button></div>
+ <div class="info"><h2>iFood</h2><p>Solicite a vinculação da sua loja ao TurboFlow. Você não precisa informar sua senha do iFood.</p><div id="ifoodStatus" class="status off">Verificando...</div></div>
+ <div><button id="ifoodAction" class="primary">Solicitar vinculação</button></div>
 </div>
 
 <div class="card">
@@ -29,7 +29,17 @@ button{padding:11px 15px;border-radius:9px;border:1px solid #d0d5dd;background:#
  <div><button disabled>Em breve</button></div>
 </div>
 
-<div class="note"><b>Como funciona:</b> o aplicativo TurboFlow usa as credenciais gerais configuradas no servidor. Cada cliente autoriza somente a própria loja, e a conexão fica vinculada à conta dele.</div>
+<div class="note"><b>Como funciona:</b> informe o CNPJ ou ID da sua loja do iFood. O TurboFlow registra a solicitação. Depois que o acesso for aprovado no Portal do Parceiro, o administrador confirma a vinculação da loja à sua conta.</div>
+
+<div id="ifoodRequestBox" class="card" style="display:none;align-items:flex-end">
+  <div class="info">
+    <h2>Solicitar vinculação iFood</h2>
+    <p>Informe o CNPJ da loja ou o merchant ID do iFood.</p>
+    <input id="ifoodIdentifier" placeholder="CNPJ ou Merchant ID" style="margin-top:12px;width:100%;padding:12px;border:1px solid #d0d5dd;border-radius:9px">
+    <div id="ifoodRequestMsg" class="status off"></div>
+  </div>
+  <div><button id="ifoodRequestSend" class="primary">Enviar solicitação</button></div>
+</div>
 </main>
 <script>
 let integration=null;
@@ -37,25 +47,57 @@ async function boot(){
  const me=await fetch("/api/auth/me").then(r=>r.json());
  if(!me.user)return location.href="/login.html";
  if(!me.access?.allowed)return location.href=me.access?.reason==="expired"?"/expired.html":"/pending.html";
- const r=await fetch("/api/integrations/ifood"); const d=await r.json();
+
+ const r=await fetch("/api/integrations/ifood");
+ const d=await r.json();
  integration=d.integration||{};
- const st=document.getElementById("ifoodStatus"),btn=document.getElementById("ifoodAction");
+
+ const st=document.getElementById("ifoodStatus");
+ const btn=document.getElementById("ifoodAction");
+ const box=document.getElementById("ifoodRequestBox");
+
  if(integration.connected){
-   st.className="status ok"; st.textContent="● Conectado"+(integration.merchantName?" — "+integration.merchantName:"");
-   btn.textContent="Desconectar"; btn.className="danger";
- } else {
-   st.className="status off";
-   st.textContent=d.appConfigured?"● Pronto para conectar":"● Aplicativo iFood ainda não configurado no servidor";
-   btn.textContent="Conectar iFood"; btn.className="primary";
- }
- btn.onclick=async()=>{
-   if(integration.connected){
+   st.className="status ok";
+   st.textContent="● Conectado"+(integration.merchantName?" — "+integration.merchantName:"");
+   btn.textContent="Desconectar";
+   btn.className="danger";
+   btn.onclick=async()=>{
      if(!confirm("Desconectar o iFood desta loja?"))return;
-     await fetch("/api/integrations/ifood/disconnect",{method:"POST"}); location.reload(); return;
-   }
-   // Usa a rota de autorização já existente no TurboFlow, se disponível.
-   // O servidor deve concluir a autorização e associar o merchant ao usuário autenticado.
-   location.href="/api/ifood/auth/start";
+     await fetch("/api/integrations/ifood/disconnect",{method:"POST"});
+     location.reload();
+   };
+   return;
+ }
+
+ if(integration.linkStatus==="requested"){
+   st.className="status off";
+   st.textContent="● Solicitação enviada — aguardando aprovação/vinculação";
+   btn.textContent="Ver solicitação";
+   btn.className="primary";
+   box.style.display="flex";
+   document.getElementById("ifoodIdentifier").value=integration.requestedIdentifier||"";
+ }else{
+   st.className="status off";
+   st.textContent=d.appConfigured?"● Pronto para solicitar vinculação":"● Aplicativo iFood ainda não configurado no servidor";
+   btn.textContent="Solicitar vinculação";
+   btn.className="primary";
+   btn.onclick=()=>{box.style.display=box.style.display==="none"?"flex":"none";};
+ }
+
+ document.getElementById("ifoodRequestSend").onclick=async()=>{
+   const identifier=document.getElementById("ifoodIdentifier").value.trim();
+   const msg=document.getElementById("ifoodRequestMsg");
+   if(!identifier){msg.textContent="Informe o CNPJ ou Merchant ID.";return;}
+   const rr=await fetch("/api/integrations/ifood/request",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({identifier})
+   });
+   const dd=await rr.json().catch(()=>({}));
+   if(!rr.ok){msg.textContent="Não foi possível enviar a solicitação.";return;}
+   msg.className="status ok";
+   msg.textContent="Solicitação enviada. Aguarde a aprovação e a vinculação.";
+   setTimeout(()=>location.reload(),900);
  };
 }
 async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}

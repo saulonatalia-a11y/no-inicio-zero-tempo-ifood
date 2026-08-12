@@ -80,7 +80,7 @@ th{background:#fafafa;white-space:nowrap}
           <th>Faltam</th>
           <th>Vencimento</th>
           <th>Cadastro</th>
-          <th>Ações</th>
+          <th>iFood</th><th>Ações</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
@@ -163,6 +163,18 @@ function render(){
       <td>${fmtDate(u.planExpiresAt)}</td>
       <td>${fmt(u.createdAt)}</td>
       <td>
+        ${u.ifoodConnected
+          ? `<span class="status active">Conectado</span><br><small>${esc(u.ifoodMerchantName||u.ifoodMerchantId||"")}</small>`
+          : u.ifoodLinkStatus==="requested"
+            ? `<span class="status expiring">Solicitado</span><br><small>${esc(u.ifoodRequestedIdentifier||"")}</small>`
+            : `<span class="status blocked">Não vinculado</span>`}
+        <div class="actions" style="margin-top:6px">
+          ${u.ifoodConnected
+            ? `<button onclick="disconnectIfood('${u.id}')">Desvincular</button>`
+            : `<button onclick="linkIfood('${u.id}')">Vincular iFood</button>`}
+        </div>
+      </td>
+      <td>
         <div class="actions">
           <select id="days-${u.id}">
             <option value="7">7 dias</option>
@@ -224,6 +236,36 @@ async function deleteUser(id,name){
     alert("Não foi possível excluir o cliente.");
     return;
   }
+  load();
+}
+
+
+async function linkIfood(id){
+  const merchantId=prompt("Digite o Merchant ID da loja após ela ter aprovado o acesso no Portal do Parceiro:");
+  if(!merchantId)return;
+
+  const r=await fetch(`/api/admin/users/${id}/ifood`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"link",merchantId:merchantId.trim()})
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){
+    alert(d.message || "Não foi possível vincular. Confirme se a loja já aprovou o acesso e se o Merchant ID está correto.");
+    return;
+  }
+  alert("Loja iFood vinculada com sucesso.");
+  load();
+}
+
+async function disconnectIfood(id){
+  if(!confirm("Desvincular o iFood deste cliente?"))return;
+  const r=await fetch(`/api/admin/users/${id}/ifood`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"disconnect"})
+  });
+  if(!r.ok){alert("Não foi possível desvincular.");return;}
   load();
 }
 

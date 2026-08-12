@@ -232,6 +232,9 @@ function publicUser(user) {
     ifoodConnected: Boolean(user.ifoodConnected),
     ifoodMerchantId: user.ifoodMerchantId || "",
     ifoodMerchantName: user.ifoodMerchantName || "",
+    ifoodLinkStatus: user.ifoodLinkStatus || (user.ifoodConnected ? "connected" : "none"),
+    ifoodRequestedIdentifier: user.ifoodRequestedIdentifier || "",
+    ifoodRequestedAt: user.ifoodRequestedAt || null,
     role: user.role || "customer",
     status: user.status || "pending",
     planDays: Number(user.planDays || 0),
@@ -323,7 +326,10 @@ function ifoodCustomerConnection(user) {
     connected: Boolean(user && user.ifoodConnected && user.ifoodMerchantId),
     merchantId: user?.ifoodMerchantId || "",
     merchantName: user?.ifoodMerchantName || "",
-    connectedAt: user?.ifoodConnectedAt || null
+    connectedAt: user?.ifoodConnectedAt || null,
+    linkStatus: user?.ifoodLinkStatus || (user?.ifoodConnected ? "connected" : "none"),
+    requestedIdentifier: user?.ifoodRequestedIdentifier || "",
+    requestedAt: user?.ifoodRequestedAt || null
   };
 }
 
@@ -336,8 +342,35 @@ function clearIfoodCustomerConnection(user) {
   user.ifoodRefreshToken = "";
   user.ifoodTokenExpiresAt = null;
   user.ifoodConnectedAt = null;
+  user.ifoodLinkStatus = "none";
+  user.ifoodRequestedIdentifier = "";
+  user.ifoodRequestedAt = null;
   user.updatedAt = new Date().toISOString();
   saveAuthData();
+}
+
+
+function orderMerchantId(order) {
+  return String(
+    order?.merchant?.id ||
+    order?.merchantId ||
+    order?.raw?.merchant?.id ||
+    ""
+  ).trim();
+}
+
+function userCanAccessOrder(user, order) {
+  if (!user || user.role === "admin") return true;
+  if (!user.ifoodConnected || !user.ifoodMerchantId) return false;
+  return orderMerchantId(order) === String(user.ifoodMerchantId);
+}
+
+async function listAccessibleIfoodMerchants() {
+  const { data } = await ifoodRequest("/merchant/v1.0/merchants");
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.merchants)) return data.merchants;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
 }
 
 function addPlanDays(user, days, resetFromNow = false) {
@@ -1035,6 +1068,28 @@ async function handleApi(req, res, url) {
     });
   }
 
+
+  if (req.method === "POST" && url.pathname === "/api/integrations/ifood/request") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+    const body = await readJson(req);
+    const identifier = String(body.identifier || "").trim();
+    if (!identifier) {
+      return json(res, 400, { ok: false, error: "identifier_required" });
+    }
+
+    user.ifoodLinkStatus = "requested";
+    user.ifoodRequestedIdentifier = identifier;
+    user.ifoodRequestedAt = new Date().toISOString();
+    user.updatedAt = new Date().toISOString();
+    saveAuthData();
+
+    return json(res, 200, {
+      ok: true,
+      integration: ifoodCustomerConnection(user)
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/integrations/ifood/disconnect") {
     const user = requireActiveCustomer(req, res);
     if (!user) return;
@@ -1053,12 +1108,86 @@ async function handleApi(req, res, url) {
     if (!merchantId) return json(res, 400, { ok: false, error: "merchant_id_required" });
 
     user.ifoodConnected = true;
+    user.ifoodLinkStatus = "connected";
     user.ifoodMerchantId = merchantId;
     user.ifoodMerchantName = merchantName;
     user.ifoodConnectedAt = new Date().toISOString();
     user.updatedAt = new Date().toISOString();
     saveAuthData();
     return json(res, 200, { ok: true, integration: ifoodCustomerConnection(user) });
+  }
+
+
+  const adminIfoodLinkMatch = url.pathname.match(/^\/api\/admin\/users\/([^/]+)\/ifood$/);
+  if (req.method === "POST" && adminIfoodLinkMatch) {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+
+    const userId = decodeURIComponent(adminIfoodLinkMatch[1]);
+    const user = authData.users.find(u => u.id === userId && u.role !== "admin");
+    if (!user) return json(res, 404, { ok: false, error: "user_not_found" });
+
+    const body = await readJson(req);
+    const action = String(body.action || "link");
+
+    if (action === "disconnect") {
+      clearIfoodCustomerConnection(user);
+      return json(res, 200, { ok: true, user: publicUser(user) });
+    }
+
+    const merchantId = String(body.merchantId || "").trim();
+    if (!merchantId) {
+      return json(res, 400, { ok: false, error: "merchant_id_required" });
+    }
+
+    let merchants;
+    try {
+      merchants = await listAccessibleIfoodMerchants();
+    } catch (err) {
+      return json(res, 502, {
+        ok: false,
+        error: "ifood_merchant_check_failed",
+        message: err.message
+      });
+    }
+
+    const merchant = merchants.find(m => String(m?.id || "") === merchantId);
+    if (!merchant) {
+      return json(res, 409, {
+        ok: false,
+        error: "merchant_not_authorized",
+        message: "Este merchant ainda não aparece entre as lojas autorizadas para o aplicativo TurboFlow."
+      });
+    }
+
+    // Evita associar a mesma loja a dois clientes.
+    const alreadyLinked = authData.users.find(
+      u => u.id !== user.id &&
+           u.role !== "admin" &&
+           u.ifoodConnected &&
+           String(u.ifoodMerchantId || "") === merchantId
+    );
+    if (alreadyLinked) {
+      return json(res, 409, {
+        ok: false,
+        error: "merchant_already_linked",
+        message: "Este merchant já está vinculado a outro cliente."
+      });
+    }
+
+    user.ifoodConnected = true;
+    user.ifoodLinkStatus = "connected";
+    user.ifoodMerchantId = merchantId;
+    user.ifoodMerchantName = String(merchant?.name || body.merchantName || user.storeName || "").trim();
+    user.ifoodConnectedAt = new Date().toISOString();
+    user.updatedAt = new Date().toISOString();
+    saveAuthData();
+
+    return json(res, 200, {
+      ok: true,
+      merchant: { id: merchantId, name: user.ifoodMerchantName },
+      user: publicUser(user)
+    });
   }
 
   if (req.method === "GET" && url.pathname === "/api/admin/users") {
@@ -1204,7 +1333,10 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/orders") {
     const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
-    return json(res, 200, [...orders.values()].sort((a,b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)));
+    const visibleOrders = [...orders.values()]
+      .filter(order => userCanAccessOrder(activeUser, order))
+      .sort((a,b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0));
+    return json(res, 200, visibleOrders);
   }
 
   if (req.method === "GET" && url.pathname === "/api/logs") {
@@ -1221,6 +1353,12 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && actionMatch) {
     const id = decodeURIComponent(actionMatch[1]);
     const action = actionMatch[2];
+    const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
+    const order = orders.get(id);
+    if (!order) return json(res, 404, { ok: false, error: "order_not_found" });
+    if (!userCanAccessOrder(activeUser, order)) {
+      return json(res, 403, { ok: false, error: "order_not_owned_by_store" });
+    }
     let result;
     if (action === "confirm") result = await actionConfirm(id);
     if (action === "start") result = await actionStartPreparation(id);
