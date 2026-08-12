@@ -175,7 +175,14 @@ async function boot(){
 }
 async function generate(){
   const {r,d}=await api("/api/integrations/ifood/code/start");
-  if(!r.ok){msg("startMsg",d.message||"Não foi possível gerar o código.");return}
+  if(!r.ok){
+    if(d.error==="ifood_app_not_distributed"){
+      msg("startMsg","A conexão por código ainda não está habilitada nas credenciais atuais do iFood. O administrador do TurboFlow precisa usar um aplicativo iFood do tipo Distribuído. Nenhuma ação é necessária na sua loja agora.");
+    }else{
+      msg("startMsg",d.message||"Não foi possível gerar o código. Tente novamente.");
+    }
+    return;
+  }
   integration.userCode=d.userCode;
   integration.verificationUrl=d.verificationUrl;
   document.getElementById("userCode").textContent=d.userCode;

@@ -1268,10 +1268,22 @@ async function handleApi(req, res, url) {
       });
     } catch (err) {
       log("ifood-auth", `Falha ao gerar código de vínculo: ${err.message}`);
+
+      const rawMessage = String(err.message || "");
+      const grantNotAllowed = /grant type not authorized for client/i.test(rawMessage);
+
+      if (grantNotAllowed) {
+        return json(res, 409, {
+          ok: false,
+          error: "ifood_app_not_distributed",
+          message: "O aplicativo iFood configurado no TurboFlow ainda está como Centralizado. Para usar a ativação automática por código, configure no Portal do Desenvolvedor um aplicativo do tipo Distribuído e depois atualize o IFOOD_CLIENT_ID e IFOOD_CLIENT_SECRET no servidor."
+        });
+      }
+
       return json(res, 502, {
         ok: false,
         error: "ifood_user_code_failed",
-        message: err.message
+        message: rawMessage || "Não foi possível gerar o código de ativação."
       });
     }
   }

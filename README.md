@@ -285,3 +285,10 @@ Fluxo distribuído oficial:
 9. Refresh token é renovado automaticamente conforme `expiresIn`.
 
 Client ID e Client Secret permanecem exclusivamente no servidor.
+
+## v2.10.1
+- Painel Admin reorganizado em cards responsivos.
+- Remove configuração manual de iFood do Admin.
+- Corrige botões cortados e tabela espremida.
+- Traduz `Grant type not authorized for client` para orientação amigável.
+- O fluxo por código permanece implementado, mas requer credenciais de um app iFood do tipo Distribuído.
