@@ -300,3 +300,12 @@ Client ID e Client Secret permanecem exclusivamente no servidor.
 - Cliente vê status "Aguardando autorização".
 - Admin vê o ID solicitado e pode copiá-lo com um clique.
 - Mantém o modelo centralizado atual do aplicativo iFood.
+
+## v2.12 — Homologação iFood / Polling por Merchant
+- Adiciona suporte ao header `x-polling-merchants` no endpoint `/events/v1.0/events:polling`.
+- Intervalo de polling ajustado para 30 segundos.
+- Novo ENV recomendado no Render:
+  - `IFOOD_POLLING_MERCHANTS=<Merchant UUID/ID aceito pelo iFood na homologação>`
+  - também aceita `IFOOD_HOMOLOGATION_MERCHANT_ID`.
+- Endpoint admin de diagnóstico: `/api/ifood/homologation-status` (não expõe segredos).
+- Mantém as credenciais existentes `IFOOD_CLIENT_ID` e `IFOOD_CLIENT_SECRET`.

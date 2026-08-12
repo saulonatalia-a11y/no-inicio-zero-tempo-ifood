@@ -479,6 +479,17 @@ async function listUserIfoodMerchants(user) {
   return [];
 }
 
+
+function homologationMerchantIds() {
+  const raw = String(process.env.IFOOD_POLLING_MERCHANTS || process.env.IFOOD_HOMOLOGATION_MERCHANT_ID || "").trim();
+  if (!raw) return [];
+  return raw.split(",").map(x => x.trim()).filter(Boolean);
+}
+
+function pollingMerchantHeaderValue() {
+  return homologationMerchantIds().join(",");
+}
+
 function orderMerchantId(order) {
   return String(
     order?.merchant?.id ||
@@ -773,7 +784,7 @@ async function pollEvents() {
   if (isPolling) return;
   isPolling = true;
   try {
-    const { data } = await ifoodRequest("/events/v1.0/events:polling");
+    const { data } = await ifoodRequest("/events/v1.0/events:polling", { headers: pollingMerchantHeaderValue() ? { "x-polling-merchants": pollingMerchantHeaderValue() } : {} });
     const events = Array.isArray(data) ? data : (data?.events || []);
     if (!events.length) return;
 
@@ -1750,6 +1761,19 @@ async function handleApi(req, res, url) {
     if (action === "ready") result = await actionReadyToPickup(id);
     if (action === "dispatch") result = await actionDispatch(id);
     return json(res, 200, { ok: true, order: result });
+  }
+
+
+  if (req.method === "GET" && url.pathname === "/api/ifood/homologation-status") {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    return json(res, 200, {
+      ok: true,
+      pollingMerchants: homologationMerchantIds(),
+      pollingIntervalSeconds: 30,
+      clientIdConfigured: Boolean(process.env.IFOOD_CLIENT_ID),
+      clientSecretConfigured: Boolean(process.env.IFOOD_CLIENT_SECRET)
+    });
   }
 
   return json(res, 404, { error: "Rota não encontrada" });
