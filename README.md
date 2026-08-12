@@ -347,3 +347,16 @@ Correções:
 Observação oficial do iFood:
 Webhook é indicado/suportado para autenticação centralizada; o aplicativo Distribuído deve
 usar polling no fluxo de homologação.
+
+## v2.17 — Modo Homologação D
+
+No Render, adicione:
+- `IFOOD_HOMOLOGATION_MODE=true`
+
+Enquanto essa variável estiver `true`:
+- `IFOOD_CLIENT_ID` / `IFOOD_CLIENT_SECRET` do Teste (C) permanecem salvos, mas NÃO são usados.
+- O polling legado do Teste (C) não roda.
+- Toda chamada iFood do sistema exige o token do Teste (D) autorizado por Authorization Code.
+- O Teste (D) continua com polling de homologação a cada 30 segundos.
+
+Depois da homologação, mude para `false` ou remova a variável.

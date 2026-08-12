@@ -552,6 +552,10 @@ function saveHmlAuth(data) {
 
 let hmlAuth = loadHmlAuth();
 
+function homologationModeEnabled() {
+  return String(process.env.IFOOD_HOMOLOGATION_MODE || "").trim().toLowerCase() === "true";
+}
+
 function hmlClientId() {
   return String(process.env.IFOOD_HML_CLIENT_ID || "").trim();
 }
@@ -688,6 +692,10 @@ function log(type, message, data = null) {
 }
 
 async function getToken() {
+  if (homologationModeEnabled()) {
+    throw new Error("IFOOD_HOMOLOGATION_MODE=true: Teste (C) desativado.");
+  }
+
   const now = Date.now();
   if (tokenCache.accessToken && now < tokenCache.expiresAt - 60000) return tokenCache.accessToken;
 
@@ -720,6 +728,13 @@ async function getToken() {
 }
 
 async function ifoodRequest(endpoint, options = {}) {
+  if (homologationModeEnabled()) {
+    if (hmlAuth && (hmlAuth.accessToken || hmlAuth.refreshToken)) {
+      return hmlIfoodRequest(endpoint, options);
+    }
+    throw new Error("Modo homologação ativo, mas o Teste (D) ainda não foi autorizado.");
+  }
+
   const token = await getToken();
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -902,6 +917,9 @@ async function handle99FoodWebhook(req, res) {
 }
 
 async function pollEvents() {
+  // Modo homologação: bloqueia totalmente o Teste (C) desde o boot.
+  if (homologationModeEnabled()) return;
+
   // Durante a homologação do aplicativo Distribuído, NÃO execute o polling
   // com as credenciais legadas (IFOOD_CLIENT_ID/SECRET). O Wizard do iFood
   // identifica o cliente OAuth que fez o polling e rejeita a conectividade
@@ -2082,6 +2100,11 @@ const server = http.createServer(async (req, res) => {
 
 
 server.listen(PORT, () => {
+  if (homologationModeEnabled()) {
+    console.log("=== MODO HOMOLOGAÇÃO iFood ATIVO ===");
+    console.log("Teste (C): DESATIVADO");
+    console.log("Teste (D): Authorization Code + polling 30s");
+  }
   console.log(`TurboFlow: http://localhost:${PORT}`);
   console.log(`Webhook local: http://localhost:${PORT}/webhook/ifood`);
   console.log(`Webhook 99Food: http://localhost:${PORT}/webhook/99food`);
