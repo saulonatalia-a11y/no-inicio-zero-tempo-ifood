@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TurboFlow — Integrações</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f5f7;color:#171717}
+.top{background:#0b0b0b;color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center}.brand{color:#ffd400;font-size:25px;font-weight:950}
+.main{max-width:950px;margin:32px auto;padding:0 18px}.back{color:#555;text-decoration:none;font-weight:800}.head{margin:22px 0}.head h1{margin:0 0 6px}.head p{color:#6b7280}
+.card{background:#fff;border:1px solid #ddd;border-radius:17px;padding:22px;margin-bottom:16px;display:flex;gap:18px;align-items:center}
+.logo{width:62px;height:62px;border-radius:14px;display:grid;place-items:center;font-weight:950;font-size:22px}.ifood{background:#ea1d2c;color:#fff}.food99{background:#ffd400;color:#111}
+.info{flex:1}.info h2{margin:0 0 5px}.info p{margin:0;color:#6b7280;line-height:1.45}.status{font-weight:850;margin-top:9px}.ok{color:#16834b}.off{color:#8a8a8a}
+button{padding:11px 15px;border-radius:9px;border:1px solid #d0d5dd;background:#fff;font-weight:850;cursor:pointer}.primary{background:#ffd400;border-color:#d6b400}.danger{color:#a22535;background:#fff1f2}
+.note{background:#fff8d6;border:1px solid #f0d96a;border-radius:12px;padding:14px;color:#5f5200;line-height:1.5}
+</style></head>
+<body>
+<header class="top"><div class="brand">TURBOFLOW</div><button onclick="logout()">Sair</button></header>
+<main class="main">
+<a class="back" href="/">← Voltar ao Gestor de pedidos</a>
+<div class="head"><h1>Integrações da minha loja</h1><p>Conecte as plataformas que pertencem à sua operação.</p></div>
+
+<div class="card">
+ <div class="logo ifood">iFood</div>
+ <div class="info"><h2>iFood</h2><p>Conecte a sua própria loja ao TurboFlow. Você não precisa informar sua senha do iFood ao administrador.</p><div id="ifoodStatus" class="status off">Verificando...</div></div>
+ <div><button id="ifoodAction" class="primary">Conectar iFood</button></div>
+</div>
+
+<div class="card">
+ <div class="logo food99">99</div>
+ <div class="info"><h2>99Food</h2><p>A integração será liberada quando o acesso da API estiver aprovado.</p><div class="status off">Aguardando liberação</div></div>
+ <div><button disabled>Em breve</button></div>
+</div>
+
+<div class="note"><b>Como funciona:</b> o aplicativo TurboFlow usa as credenciais gerais configuradas no servidor. Cada cliente autoriza somente a própria loja, e a conexão fica vinculada à conta dele.</div>
+</main>
+<script>
+let integration=null;
+async function boot(){
+ const me=await fetch("/api/auth/me").then(r=>r.json());
+ if(!me.user)return location.href="/login.html";
+ if(!me.access?.allowed)return location.href=me.access?.reason==="expired"?"/expired.html":"/pending.html";
+ const r=await fetch("/api/integrations/ifood"); const d=await r.json();
+ integration=d.integration||{};
+ const st=document.getElementById("ifoodStatus"),btn=document.getElementById("ifoodAction");
+ if(integration.connected){
+   st.className="status ok"; st.textContent="● Conectado"+(integration.merchantName?" — "+integration.merchantName:"");
+   btn.textContent="Desconectar"; btn.className="danger";
+ } else {
+   st.className="status off";
+   st.textContent=d.appConfigured?"● Pronto para conectar":"● Aplicativo iFood ainda não configurado no servidor";
+   btn.textContent="Conectar iFood"; btn.className="primary";
+ }
+ btn.onclick=async()=>{
+   if(integration.connected){
+     if(!confirm("Desconectar o iFood desta loja?"))return;
+     await fetch("/api/integrations/ifood/disconnect",{method:"POST"}); location.reload(); return;
+   }
+   // Usa a rota de autorização já existente no TurboFlow, se disponível.
+   // O servidor deve concluir a autorização e associar o merchant ao usuário autenticado.
+   location.href="/api/ifood/auth/start";
+ };
+}
+async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}
+boot();
+</script></body></html>

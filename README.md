@@ -223,3 +223,36 @@ Nesta fase os cadastros ficam em `auth-data.json`. Para vender em produção, an
 - Botão Excluir cliente com confirmação.
 - Endpoint DELETE administrativo remove cliente e sessões.
 - Estrutura preparada para futura automação de cobrança via WhatsApp.
+
+## v2.7 — Interface limpa para clientes
+- Remove a seção Atividade do painel do cliente.
+- Remove o menu Logs do cliente.
+- Remove o botão Sincronizar emergência do cliente.
+- Mantém essas rotinas técnicas no backend; apenas deixa de expô-las na interface do cliente.
+- Mantém Gestor de pedidos, Histórico, Integrações, Configurações, Impressão, Automação e status das plataformas.
+
+## v2.8
+- Painel Automação funcional no botão já existente.
+- Tempo para aceitar: desligado/5/10/15/30 s.
+- Tempo para iniciar preparo: desligado/5/10/15/30/60 s.
+- Impressão automática configurável.
+- 1, 2 ou 3 vias.
+- Papel 58 mm ou 80 mm.
+- Opção de avanço para pronto/despacho.
+- Configurações ficam salvas no navegador da loja.
+- Endpoint /api/automation/capabilities para diagnóstico.
+
+## v2.9 — Minha Loja + iFood por cliente
+- Cliente aprovado cadastra a própria loja.
+- Após salvar a loja, segue para Integrações.
+- Nova tela `/integrations.html`.
+- iFood é vinculado à conta/merchant do próprio cliente.
+- Client ID e Client Secret continuam somente no servidor.
+- Cliente pode desconectar a própria integração.
+- 99Food permanece como aguardando API.
+- Minha Loja continua editável em `/store.html`.
+
+### Observação importante
+A associação final do merchant depende do retorno do fluxo oficial de autorização do iFood.
+A rota de interface inicia em `/api/ifood/auth/start`; o callback existente deve, após a autorização,
+associar o merchant à sessão autenticada. Nenhuma senha do iFood deve ser solicitada ao cliente.

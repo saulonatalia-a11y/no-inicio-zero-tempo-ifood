@@ -1023,3 +1023,106 @@ function tfRenderPlanStatus(user){
     });
   }
 }
+
+
+// v2.7 — interface do cliente sem informações técnicas
+function tfHideCustomerTechnicalUI(){
+  const technicalTexts = ["Logs", "Sincronizar emergência"];
+  document.querySelectorAll("a,button").forEach(el=>{
+    const txt=(el.textContent||"").trim();
+    if(technicalTexts.some(t=>txt.toLowerCase().includes(t.toLowerCase()))) el.style.display="none";
+  });
+
+  document.querySelectorAll("section,main > div,.card,[class*='activity'],[class*='atividade'],[class*='log']").forEach(el=>{
+    const txt=(el.textContent||"").trim();
+    if(/^Atividade\b/i.test(txt) || (txt.includes("KEEPALIVE") && /Atividade/i.test(txt))){
+      el.style.display="none";
+    }
+  });
+}
+document.addEventListener("DOMContentLoaded", tfHideCustomerTechnicalUI);
+setTimeout(tfHideCustomerTechnicalUI, 500);
+
+
+// TurboFlow v2.8 — configurações de automação do cliente
+(function(){
+  const DEFAULTS = {
+    acceptDelay: 5,
+    prepareDelay: 10,
+    autoPrint: true,
+    printCopies: 1,
+    paperWidth: 80,
+    autoDispatch: false
+  };
+
+  function loadCfg(){
+    try { return {...DEFAULTS, ...JSON.parse(localStorage.getItem("turboflow_automation") || "{}")}; }
+    catch(e){ return {...DEFAULTS}; }
+  }
+  function saveCfg(cfg){
+    localStorage.setItem("turboflow_automation", JSON.stringify(cfg));
+    window.TurboFlowAutomation = cfg;
+    window.dispatchEvent(new CustomEvent("turboflow:automation-changed", {detail: cfg}));
+  }
+  function fill(){
+    const c=loadCfg();
+    const q=id=>document.getElementById(id);
+    if(!q("tfAutoAccept")) return;
+    q("tfAutoAccept").value=String(c.acceptDelay);
+    q("tfAutoPrepare").value=String(c.prepareDelay);
+    q("tfAutoPrint").checked=!!c.autoPrint;
+    q("tfPrintCopies").value=String(c.printCopies);
+    q("tfPaperWidth").value=String(c.paperWidth);
+    q("tfAutoDispatch").checked=!!c.autoDispatch;
+    window.TurboFlowAutomation=c;
+  }
+  function open(){
+    const m=document.getElementById("tfAutomationModal");
+    if(!m) return;
+    fill(); m.style.display="flex";
+  }
+  function close(){
+    const m=document.getElementById("tfAutomationModal");
+    if(m) m.style.display="none";
+  }
+  function bind(){
+    fill();
+    // botão amarelo Automação já existente
+    document.querySelectorAll("button,a").forEach(el=>{
+      if((el.textContent||"").trim().toLowerCase()==="automação"){
+        el.addEventListener("click", e=>{e.preventDefault();open();});
+      }
+    });
+    document.getElementById("tfAutoClose")?.addEventListener("click",close);
+    document.getElementById("tfAutoCancel")?.addEventListener("click",close);
+    document.getElementById("tfAutoSave")?.addEventListener("click",()=>{
+      const cfg={
+        acceptDelay:Number(document.getElementById("tfAutoAccept").value),
+        prepareDelay:Number(document.getElementById("tfAutoPrepare").value),
+        autoPrint:document.getElementById("tfAutoPrint").checked,
+        printCopies:Number(document.getElementById("tfPrintCopies").value),
+        paperWidth:Number(document.getElementById("tfPaperWidth").value),
+        autoDispatch:document.getElementById("tfAutoDispatch").checked
+      };
+      saveCfg(cfg);
+      const s=document.getElementById("tfAutoSaved"); if(s) s.textContent="Configuração salva!";
+      setTimeout(close,650);
+    });
+    document.getElementById("tfAutomationModal")?.addEventListener("click",e=>{if(e.target.id==="tfAutomationModal")close();});
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind); else bind();
+
+  // API pública para o fluxo já existente consultar as escolhas do cliente.
+  window.getTurboFlowAutomation = loadCfg;
+})();
+
+
+// v2.9 — navegação multi-loja
+document.addEventListener("DOMContentLoaded",()=>{
+  document.querySelectorAll("a,button").forEach(el=>{
+    const t=(el.textContent||"").trim().toLowerCase();
+    if(t==="integrações" || t==="integracoes"){
+      el.addEventListener("click",e=>{e.preventDefault();location.href="/integrations.html";});
+    }
+  });
+});

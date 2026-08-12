@@ -229,6 +229,9 @@ function publicUser(user) {
     storeAddress: user.storeAddress || "",
     storeCity: user.storeCity || "",
     storeState: user.storeState || "",
+    ifoodConnected: Boolean(user.ifoodConnected),
+    ifoodMerchantId: user.ifoodMerchantId || "",
+    ifoodMerchantName: user.ifoodMerchantName || "",
     role: user.role || "customer",
     status: user.status || "pending",
     planDays: Number(user.planDays || 0),
@@ -313,6 +316,29 @@ function ensureAdminAccount() {
 }
 
 ensureAdminAccount();
+
+
+function ifoodCustomerConnection(user) {
+  return {
+    connected: Boolean(user && user.ifoodConnected && user.ifoodMerchantId),
+    merchantId: user?.ifoodMerchantId || "",
+    merchantName: user?.ifoodMerchantName || "",
+    connectedAt: user?.ifoodConnectedAt || null
+  };
+}
+
+function clearIfoodCustomerConnection(user) {
+  if (!user) return;
+  user.ifoodConnected = false;
+  user.ifoodMerchantId = "";
+  user.ifoodMerchantName = "";
+  user.ifoodAccessToken = "";
+  user.ifoodRefreshToken = "";
+  user.ifoodTokenExpiresAt = null;
+  user.ifoodConnectedAt = null;
+  user.updatedAt = new Date().toISOString();
+  saveAuthData();
+}
 
 function addPlanDays(user, days, resetFromNow = false) {
   const normalizedDays = [7, 30, 90].includes(Number(days)) ? Number(days) : 30;
@@ -995,6 +1021,46 @@ async function handleApi(req, res, url) {
     return json(res, 200, { ok: true, user: publicUser(user) });
   }
 
+
+  // ===== iFood por cliente / loja =====
+  // O Client ID e Client Secret continuam apenas no servidor.
+  // Cada usuário mantém somente a autorização/merchant da própria loja.
+  if (req.method === "GET" && url.pathname === "/api/integrations/ifood") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+    return json(res, 200, {
+      ok: true,
+      integration: ifoodCustomerConnection(user),
+      appConfigured: Boolean(process.env.IFOOD_CLIENT_ID && process.env.IFOOD_CLIENT_SECRET)
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/integrations/ifood/disconnect") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+    clearIfoodCustomerConnection(user);
+    return json(res, 200, { ok: true, integration: ifoodCustomerConnection(user) });
+  }
+
+  // Salva o merchant depois que o fluxo oficial de autorização iFood retornar.
+  // Tokens nunca são enviados para o frontend.
+  if (req.method === "POST" && url.pathname === "/api/integrations/ifood/complete") {
+    const user = requireActiveCustomer(req, res);
+    if (!user) return;
+    const body = await readJson(req);
+    const merchantId = String(body.merchantId || "").trim();
+    const merchantName = String(body.merchantName || user.storeName || "").trim();
+    if (!merchantId) return json(res, 400, { ok: false, error: "merchant_id_required" });
+
+    user.ifoodConnected = true;
+    user.ifoodMerchantId = merchantId;
+    user.ifoodMerchantName = merchantName;
+    user.ifoodConnectedAt = new Date().toISOString();
+    user.updatedAt = new Date().toISOString();
+    saveAuthData();
+    return json(res, 200, { ok: true, integration: ifoodCustomerConnection(user) });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/admin/users") {
     const admin = requireAdmin(req, res);
     if (!admin) return;
@@ -1251,6 +1317,20 @@ const server = http.createServer(async (req, res) => {
     return json(res, 500, { error: err.message });
   }
 });
+
+// TurboFlow v2.8 - endpoint seguro de diagnóstico do fluxo
+app.get('/api/automation/capabilities', (req, res) => {
+  res.json({
+    ok: true,
+    platform: 'iFood',
+    webhook: true,
+    automaticAccept: true,
+    automaticPreparation: true,
+    automaticPrinting: true,
+    dispatch: 'depends_on_order_flow'
+  });
+});
+
 
 server.listen(PORT, () => {
   console.log(`TurboFlow: http://localhost:${PORT}`);

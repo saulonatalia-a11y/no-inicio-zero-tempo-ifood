@@ -13,47 +13,7 @@
       <strong>Atenção: seu plano expira em <span id="planExpiryBannerDays">1 dia</span>!</strong>
       <span>Renove seu plano para evitar a interrupção dos serviços.</span>
     </div>
-    <button id="renewPlanBtn" type="button">Renovar plano</button>
-    <button id="dismissPlanBanner" type="button" class="plan-expiry-close">×</button>
-  </div>
-
-  <aside class="sidebar">
-    <div class="brand brand-turboflow">
-      <div class="brand-logo-wrap">
-        <img src="/turboflow-logo.png" alt="TurboFlow" class="brand-logo">
-      </div>
-      <div class="brand-mini">
-        <strong>TurboFlow</strong>
-        <span>Delivery em alta velocidade</span>
-      </div>
-    </div>
-      <div>
-        <strong>No Início</strong>
-        <span>Zero Tempo</span>
-      </div>
-    </div>
-
-    <nav>
-      
-        <div id="planSidebarCard" class="plan-sidebar-card" style="display:none">
-          <div class="plan-sidebar-label">Plano</div>
-          <div class="plan-sidebar-main">
-            <span id="planNameSidebar">—</span>
-          </div>
-          <div class="plan-sidebar-days">
-            Vence em: <strong id="planDaysSidebar">—</strong>
-          </div>
-          <div id="planDateSidebar" class="plan-sidebar-date">—</div>
-          <div id="planOneDaySidebar" class="plan-sidebar-warning" style="display:none">
-            ⚠ Atenção: seu plano expira em 1 dia!
-          </div>
-        </div>
-<button class="nav-item active" data-view="orders">Gestor de pedidos</button>
-      <button class="nav-item" data-view="history">Histórico</button>
-      <button class="nav-item" data-view="integrations">Integrações</button>
-      <button class="nav-item" data-view="settings">Configurações</button>
-      <button class="nav-item" data-view="printing">Impressão</button>
-      <button class="nav-item" data-view="logs">Logs</button>
+    
     </nav>
 
     <div class="sidebar-footer">
@@ -75,107 +35,7 @@
         <h1>Gestor de pedidos</h1>
       </div>
       <div class="top-actions">
-        <button id="pollBtn" class="secondary">Sincronizar emergência</button>
-        <button id="settingsBtn">Automação</button>
-      </div>
-    </header>
-
-    <section id="view-orders" class="view-panel">
-    <section class="metrics">
-      <div class="metric">
-        <span>Pedidos ativos</span>
-        <strong id="activeCount">0</strong>
-      </div>
-      <div class="metric">
-        <span>Finalizados</span>
-        <strong id="finishedCount">0</strong>
-      </div>
-      <div class="metric">
-        <span>Fluxo automático</span>
-        <strong id="autoDispatchMetric">5s + 10s</strong>
-      </div>
-      <div class="metric">
-        <span>Status iFood</span>
-        <strong class="ok">Conectado</strong>
-      </div>
-    </section>
-
-    <section class="board" id="board">
-      <div class="column" data-stage="new">
-        <div class="column-head red">
-          <div><span>Novo pedido</span><b id="count-new">0</b></div>
         </div>
-        <div class="column-body" id="col-new"></div>
-      </div>
-
-      <div class="column" data-stage="prep">
-        <div class="column-head orange">
-          <div><span>Em preparo</span><b id="count-prep">0</b></div>
-        </div>
-        <div class="column-body" id="col-prep"></div>
-      </div>
-
-      <div class="column" data-stage="ready">
-        <div class="column-head blue">
-          <div><span>Pronto / despacho</span><b id="count-ready">0</b></div>
-        </div>
-        <div class="column-body" id="col-ready"></div>
-      </div>
-
-      <div class="column" data-stage="delivery">
-        <div class="column-head green">
-          <div><span>Em entrega</span><b id="count-delivery">0</b></div>
-        </div>
-        <div class="column-body" id="col-delivery"></div>
-      </div>
-
-      <div class="column" data-stage="finished">
-        <div class="column-head gray">
-          <div><span>Finalizados</span><b id="count-finished">0</b></div>
-        </div>
-        <div class="column-body" id="col-finished"></div>
-      </div>
-    </section>
-
-    <section class="activity card">
-      <div class="activity-head">
-        <h2>Atividade</h2>
-        <span id="connection" class="connection">Verificando...</span>
-      </div>
-      <div id="logs" class="logs"></div>
-    </section>
-    </section>
-
-    <section id="view-history" class="view-panel hidden">
-      <div class="page-card"><h2>Histórico</h2><div id="historyList" class="simple-list"></div></div>
-    </section>
-
-    <section id="view-integrations" class="view-panel hidden">
-      <div class="page-card">
-        <h2>Integrações</h2>
-        <div class="integration-card"><div><strong>iFood</strong><span>Conectado ao servidor.</span></div><b class="status-ok">Conectado</b></div>
-        <div class="integration-card"><div><strong>99Food</strong><span>Aguardando liberação.</span></div><b class="status-muted">Aguardando</b></div>
-      </div>
-    </section>
-
-    <section id="view-settings" class="view-panel hidden">
-      <div class="page-card">
-        <h2>Configurações</h2>
-        <p class="helper">Controle o fluxo automático.</p>
-        <label class="toggle-row"><div><strong>Aceitar automaticamente</strong><span>Confirma assim que entra.</span></div><input id="pageAutoConfirm" type="checkbox"></label>
-        <label class="toggle-row"><div><strong>Iniciar preparo automaticamente</strong><span>Inicia após confirmação.</span></div><input id="pageAutoStartPreparation" type="checkbox"></label>
-        <label class="toggle-row"><div><strong>Marcar como pronto automaticamente</strong><span>Depois do tempo de preparo, avisa o iFood que está pronto para retirada.</span></div><input id="pageAutoReady" type="checkbox"></label>
-
-        <label class="field">
-          <span>Tempo para aceitar pedido</span>
-          <div class="input-with-suffix"><input id="pageAcceptDelaySeconds" type="number" min="0" max="3600" value="5"><b>segundos</b></div>
-        </label>
-
-        <label class="field">
-          <span>Tempo de preparo até ficar pronto</span>
-          <div class="input-with-suffix"><input id="pageReadyDelaySeconds" type="number" min="0" max="3600" value="10"><b>segundos</b></div>
-        </label>
-        <div class="settings-actions"><button id="pageSaveSettings">Salvar configurações</button></div>
       </div>
     </section>
 
@@ -187,155 +47,7 @@
             <h2>Configuração da notinha</h2>
             <p class="helper">Defina o que aparece nas notas impressas dos pedidos.</p>
           </div>
-          <button id="printTest" class="secondary">Imprimir teste</button>
-        </div>
-
-        
-        <div class="assistant-card">
-          <div class="assistant-header">
-            <div class="assistant-title">
-              <div class="assistant-icon">🖨️</div>
-              <div>
-                <strong>Assistente de Impressão</strong>
-                <span>Conecte o TurboFlow às impressoras instaladas no Windows.</span>
-              </div>
-            </div>
-            <div class="assistant-actions">
-              <a class="assistant-download" href="https://drive.google.com/file/d/1WvDFrPOl7QG4EM0t0JRdc1TrpCzDSZBG/view?usp=sharing" download>⬇ Baixar Assistente</a>
-              <button id="openAssistant" class="secondary">🖨 Abrir Assistente</button>
-            </div>
-          </div>
-
-          <div class="assistant-connection">
-            <div>
-              <strong>TurboFlow Print Agent</strong>
-              <span id="assistantStatusBadge" class="assistant-status closed">Fechado</span>
-              <small id="assistantStatusText">Instale e abra para o sistema falar com sua impressora.</small>
-            </div>
-            <button id="refreshAssistant" class="secondary">Atualizar conexão</button>
-          </div>
-
-          <label class="toggle-row assistant-toggle">
-            <div>
-              <strong>Usar o Assistente para impressão</strong>
-              <span>Permite que o TurboFlow imprima diretamente no computador.</span>
-            </div>
-            <input id="printUseAssistant" type="checkbox">
-          </label>
-
-          <label class="toggle-row assistant-toggle">
-            <div>
-              <strong>Impressão automática de pedidos</strong>
-              <span>Imprime automaticamente quando o pedido for aceito.</span>
-            </div>
-            <input id="printAutoPrint" type="checkbox">
-          </label>
-
-          <div class="printer-select-row">
-            <label class="field">
-              <span>Impressora instalada no Windows</span>
-              <select id="printSelectedPrinter">
-                <option value="">Abra o Assistente para carregar as impressoras</option>
-              </select>
-            </label>
-            <label class="field copies-field">
-              <span>Quantidade de vias</span>
-              <input id="printCopies" type="number" min="1" max="5" value="1">
-            </label>
-          </div>
-        </div>
-
-        <div class="print-layout">
-          <div class="print-options">
-            <label class="toggle-row">
-              <div><strong>Mostrar CNPJ da loja</strong><span>Imprime o CNPJ no cabeçalho da notinha.</span></div>
-              <input id="printShowCnpj" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <div><strong>Mostrar categoria dos produtos</strong><span>Agrupa os itens por categoria.</span></div>
-              <input id="printShowCategories" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <div><strong>Mostrar descrição dos produtos</strong><span>Inclui a descrição abaixo do nome do item.</span></div>
-              <input id="printShowDescription" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <div><strong>Mostrar título dos complementos</strong><span>Mostra o nome do grupo dos adicionais.</span></div>
-              <input id="printShowAddonGroupTitle" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <div><strong>Mostrar cliente</strong><span>Nome do cliente na notinha.</span></div>
-              <input id="printShowCustomer" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <div><strong>Mostrar endereço de entrega</strong><span>Endereço quando disponível.</span></div>
-              <input id="printShowAddress" type="checkbox">
-            </label>
-            <label class="toggle-row">
-              <div><strong>Mostrar pagamento</strong><span>Forma de pagamento e total.</span></div>
-              <input id="printShowPayment" type="checkbox">
-            </label>
-
-          <label class="toggle-row">
-            <div>
-              <strong>Mostrar total</strong>
-              <span>Exibe o valor total do pedido na notinha.</span>
-            </div>
-            <input id="printShowTotal" type="checkbox">
-          </label>
-            <label class="toggle-row">
-              <div><strong>Mostrar número do pedido</strong><span>Exibe o ID/código do pedido.</span></div>
-              <input id="printShowOrderId" type="checkbox">
-            </label>
-
-            <div class="print-grid-fields">
-              <label class="field">
-                <span>Tamanho do papel</span>
-                <select id="printPaperWidth">
-                  <option value="58">58 mm</option>
-                  <option value="80">80 mm</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Tamanho da fonte</span>
-                <div class="input-with-suffix">
-                  <input id="printFontSize" type="number" min="8" max="30" value="12">
-                  <b>px</b>
-                </div>
-              </label>
-
-          <label class="field">
-            <span>Tamanho do nome da empresa</span>
-            <input id="printCompanyFontSize" type="number" min="12" max="48" step="1" value="28">
-          
-            <small style="display:block;margin-top:4px;color:#7a8499">
-              A empresa é independente da fonte do pedido.
-            </small>
-          </label>
-            </div>
-
-            <div class="print-group-block">
-              <strong>Quantidade de adicionais no produto</strong>
-              <label class="radio-row"><input type="radio" name="groupIdentical" value="keep"><div><b>Agrupar e manter a quantidade</b><span>Junta produtos iguais e mantém os adicionais como foram pedidos.</span></div></label>
-              <label class="radio-row"><input type="radio" name="groupIdentical" value="multiply"><div><b>Agrupar e multiplicar adicionais</b><span>Junta produtos iguais e multiplica a quantidade dos adicionais.</span></div></label>
-              <label class="radio-row"><input type="radio" name="groupIdentical" value="separate"><div><b>Exibir cada produto separadamente</b><span>Lista um a um, sem agrupar.</span></div></label>
-            </div>
-
-            <div class="settings-actions">
-              <button id="savePrintSettings">Salvar impressão</button>
-            </div>
-          </div>
-
-          <aside class="print-preview-box">
-            <span class="preview-title">PRÉVIA DA NOTINHA</span>
-            <div id="receiptPreview" class="receipt-preview paper-80"></div>
-          </aside>
-        </div>
-      </div>
-    </section>
-
-    <section id="view-logs" class="view-panel hidden">
-      <div class="page-card"><div class="activity-head"><h2>Logs</h2><button id="refreshLogs" class="secondary">Atualizar</button></div><div id="fullLogs" class="logs full-logs"></div></div>
+          </div><div id="fullLogs" class="logs full-logs"></div></div>
     </section>
   </main>
 
@@ -411,5 +123,81 @@
   </template>
 
   <script src="/app.js"></script>
+
+<div id="tfAutomationModal" class="tf-auto-modal" style="display:none">
+  <div class="tf-auto-box">
+    <div class="tf-auto-head">
+      <div>
+        <small>AUTOMAÇÃO</small>
+        <h2>Fluxo automático de pedidos</h2>
+        <p>Configure como o TurboFlow deve trabalhar quando um pedido chegar.</p>
+      </div>
+      <button id="tfAutoClose" class="tf-auto-close">×</button>
+    </div>
+
+    <div class="tf-auto-grid">
+      <label class="tf-auto-field">
+        <span>Aceitar pedido automaticamente</span>
+        <select id="tfAutoAccept">
+          <option value="0">Desativado</option>
+          <option value="5">5 segundos</option>
+          <option value="10">10 segundos</option>
+          <option value="15">15 segundos</option>
+          <option value="30">30 segundos</option>
+        </select>
+      </label>
+
+      <label class="tf-auto-field">
+        <span>Iniciar preparo depois de aceitar</span>
+        <select id="tfAutoPrepare">
+          <option value="0">Desativado</option>
+          <option value="5">5 segundos</option>
+          <option value="10">10 segundos</option>
+          <option value="15">15 segundos</option>
+          <option value="30">30 segundos</option>
+          <option value="60">1 minuto</option>
+        </select>
+      </label>
+
+      <label class="tf-switch-row">
+        <div><b>Impressão automática</b><small>Imprime assim que o pedido for aceito.</small></div>
+        <input type="checkbox" id="tfAutoPrint">
+      </label>
+
+      <label class="tf-auto-field">
+        <span>Quantidade de vias</span>
+        <select id="tfPrintCopies">
+          <option value="1">1 via</option>
+          <option value="2">2 vias</option>
+          <option value="3">3 vias</option>
+        </select>
+      </label>
+
+      <label class="tf-auto-field">
+        <span>Largura da impressora</span>
+        <select id="tfPaperWidth">
+          <option value="80">80 mm</option>
+          <option value="58">58 mm</option>
+        </select>
+      </label>
+
+      <label class="tf-switch-row">
+        <div><b>Enviar para pronto/despacho</b><small>Permite avanço automático quando o fluxo suportar.</small></div>
+        <input type="checkbox" id="tfAutoDispatch">
+      </label>
+    </div>
+
+    <div class="tf-auto-note">
+      <b>Fluxo:</b> pedido recebido → aceitar → imprimir → iniciar preparo → pronto/despacho.
+    </div>
+
+    <div class="tf-auto-actions">
+      <span id="tfAutoSaved"></span>
+      <button id="tfAutoCancel">Cancelar</button>
+      <button id="tfAutoSave" class="tf-primary">Salvar automação</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
