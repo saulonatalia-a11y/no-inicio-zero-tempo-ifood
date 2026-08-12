@@ -256,3 +256,8 @@ Nesta fase os cadastros ficam em `auth-data.json`. Para vender em produção, an
 A associação final do merchant depende do retorno do fluxo oficial de autorização do iFood.
 A rota de interface inicia em `/api/ifood/auth/start`; o callback existente deve, após a autorização,
 associar o merchant à sessão autenticada. Nenhuma senha do iFood deve ser solicitada ao cliente.
+
+## v2.9.1 — Correção Render
+- Removida rota Express `app.get('/api/automation/capabilities')` incompatível com o servidor HTTP nativo do projeto.
+- Corrige `ReferenceError: app is not defined` no deploy.
+- Mantidas as funções da v2.9: Minha Loja, integração iFood por cliente e painel de automação.

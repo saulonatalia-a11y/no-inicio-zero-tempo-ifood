@@ -1318,17 +1318,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// TurboFlow v2.8 - endpoint seguro de diagnóstico do fluxo
-app.get('/api/automation/capabilities', (req, res) => {
-  res.json({
-    ok: true,
-    platform: 'iFood',
-    webhook: true,
-    automaticAccept: true,
-    automaticPreparation: true,
-    automaticPrinting: true,
-    dispatch: 'depends_on_order_flow'
-  });
 });
 
 
