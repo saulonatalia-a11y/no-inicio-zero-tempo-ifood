@@ -360,3 +360,9 @@ Enquanto essa variável estiver `true`:
 - O Teste (D) continua com polling de homologação a cada 30 segundos.
 
 Depois da homologação, mude para `false` ou remova a variável.
+
+
+## v2.18 — Heartbeat de conectividade por CLIENT
+- Em `IFOOD_HOMOLOGATION_MODE=true`, o polling do Teste (D) não envia `x-polling-merchants` durante a etapa de conectividade.
+- Objetivo: fazer o heartbeat do Wizard ser associado ao client do aplicativo D, evitando a identificação `merchant:<uuid>`.
+- Fora do modo de homologação, o comportamento anterior com filtro por merchant permanece.

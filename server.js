@@ -627,9 +627,14 @@ async function pollHmlEvents() {
   if (hmlPolling || !hmlAuth.accessToken) return;
   hmlPolling = true;
   try {
+    // Durante o teste de conectividade da homologação distribuída, não force
+    // x-polling-merchants. O heartbeat precisa ser identificado pelo client do
+    // aplicativo (D), não como merchant:<uuid>. O token D já limita o acesso
+    // aos merchants autorizados.
     const merchantHeader = pollingMerchantHeaderValue();
+    const useMerchantHeader = !homologationModeEnabled();
     const { data } = await hmlIfoodRequest("/events/v1.0/events:polling", {
-      headers: merchantHeader ? { "x-polling-merchants": merchantHeader } : {}
+      headers: (useMerchantHeader && merchantHeader) ? { "x-polling-merchants": merchantHeader } : {}
     });
 
     const events = Array.isArray(data) ? data : (data?.events || []);
@@ -2104,6 +2109,7 @@ server.listen(PORT, () => {
     console.log("=== MODO HOMOLOGAÇÃO iFood ATIVO ===");
     console.log("Teste (C): DESATIVADO");
     console.log("Teste (D): Authorization Code + polling 30s");
+    console.log("Heartbeat HML: modo CLIENT (sem x-polling-merchants durante conectividade)");
   }
   console.log(`TurboFlow: http://localhost:${PORT}`);
   console.log(`Webhook local: http://localhost:${PORT}/webhook/ifood`);
