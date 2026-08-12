@@ -309,3 +309,21 @@ Client ID e Client Secret permanecem exclusivamente no servidor.
   - também aceita `IFOOD_HOMOLOGATION_MERCHANT_ID`.
 - Endpoint admin de diagnóstico: `/api/ifood/homologation-status` (não expõe segredos).
 - Mantém as credenciais existentes `IFOOD_CLIENT_ID` e `IFOOD_CLIENT_SECRET`.
+
+## v2.13 — Homologação com aplicativo Distribuído de Teste
+IMPORTANTE: o Wizard identifica o cliente OAuth pelo token. Não é possível corrigir o erro
+"Cliente de heartbeat diferente do esperado" alterando apenas o texto do heartbeat.
+
+Esta versão adiciona um fluxo separado de homologação usando as credenciais do aplicativo
+de TESTE Distribuído (`...-teste-d`), sem substituir as credenciais atuais de produção/teste centralizado.
+
+Variáveis no Render:
+- IFOOD_HML_CLIENT_ID
+- IFOOD_HML_CLIENT_SECRET
+- IFOOD_POLLING_MERCHANTS
+
+Admin:
+- /ifood-homologacao.html
+
+O fluxo usa userCode -> authorizationCode -> accessToken/refreshToken e executa polling
+a cada 30 segundos com x-polling-merchants.

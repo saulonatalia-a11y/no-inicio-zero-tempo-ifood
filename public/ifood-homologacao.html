@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TurboFlow Admin — Homologação iFood</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f4f5f7;color:#171717}
+header{background:#090909;color:#fff;padding:20px 28px}.brand{color:#ffd400;font-weight:950;font-size:24px}
+main{max-width:850px;margin:32px auto;padding:0 18px}.card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:22px;margin-bottom:14px}
+h1{margin-top:0}.status{padding:12px;border-radius:10px;background:#f6f7f8;margin:12px 0}.ok{background:#e8f7ed;color:#176c3d}.warn{background:#fff6d7;color:#785e00}.err{background:#feecef;color:#9a2e40}
+button{border:1px solid #d1d5db;border-radius:9px;padding:11px 14px;font-weight:850;cursor:pointer;background:#fff}.primary{background:#ffd400;border-color:#d9b900}
+.code{font:900 32px Consolas,monospace;letter-spacing:4px;background:#111;color:#ffd400;padding:18px;border-radius:12px;text-align:center;margin:14px 0}
+input{width:100%;padding:13px;border:1px solid #ccc;border-radius:9px;font-size:17px;text-transform:uppercase;margin:8px 0 12px}
+small{color:#666}
+</style></head>
+<body>
+<header><div class="brand">TURBOFLOW ADMIN</div></header>
+<main>
+<a href="/admin.html">← Voltar ao Admin</a>
+<h1>Homologação iFood — Aplicativo Distribuído de Teste</h1>
+
+<div class="card">
+ <h3>1. Credenciais de teste</h3>
+ <p>No Render, configure:</p>
+ <p><b>IFOOD_HML_CLIENT_ID</b> = Client ID do aplicativo de teste Distribuído<br>
+ <b>IFOOD_HML_CLIENT_SECRET</b> = Client Secret do mesmo aplicativo<br>
+ <b>IFOOD_POLLING_MERCHANTS</b> = Merchant UUID da loja de teste</p>
+ <div id="cfg" class="status">Verificando...</div>
+</div>
+
+<div class="card">
+ <h3>2. Autorizar a loja de teste</h3>
+ <button id="generate" class="primary">Gerar código de vínculo</button>
+ <div id="codeWrap" style="display:none">
+   <div id="code" class="code"></div>
+   <button id="open">Abrir Portal do Parceiro</button>
+   <p><small>Autorize o aplicativo usando a loja de teste e copie o código de autorização mostrado pelo iFood.</small></p>
+   <input id="authCode" placeholder="Código de autorização">
+   <button id="complete" class="primary">Concluir autorização</button>
+ </div>
+ <div id="msg" class="status" style="display:none"></div>
+</div>
+
+<div class="card">
+ <h3>3. Testar no Wizard</h3>
+ <p>Quando aparecer <b>Autorizado</b> abaixo, aguarde cerca de 30 segundos e volte ao iFood Developer → Homologação → Testar conexão.</p>
+ <div id="authStatus" class="status">Verificando...</div>
+</div>
+</main>
+<script>
+let verificationUrl="";
+function showMsg(text, cls="warn"){msg.style.display="block";msg.className="status "+cls;msg.textContent=text}
+async function load(){
+ const r=await fetch("/api/admin/ifood-hml/status"); if(r.status===401||r.status===403)return location.href="/login.html";
+ const d=await r.json();
+ cfg.className="status "+(d.clientIdConfigured&&d.clientSecretConfigured?"ok":"warn");
+ cfg.textContent=`Client ID: ${d.clientIdConfigured?"OK":"FALTA"} | Client Secret: ${d.clientSecretConfigured?"OK":"FALTA"} | Merchant: ${d.pollingMerchants?.length?"OK":"FALTA"}`;
+ authStatus.className="status "+(d.authorized?"ok":"warn");
+ authStatus.textContent=d.authorized?"✅ Autorizado. Polling de homologação ativo.":"Ainda não autorizado.";
+}
+generate.onclick=async()=>{
+ const r=await fetch("/api/admin/ifood-hml/start",{method:"POST"});
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok)return showMsg(d.message||"Falha ao gerar código","err");
+ code.textContent=d.userCode;verificationUrl=d.verificationUrl;codeWrap.style.display="block";
+ showMsg("Código gerado. Agora autorize no Portal do Parceiro.","ok");
+}
+open.onclick=()=>window.open(verificationUrl||"https://portal.ifood.com.br/apps/code","_blank");
+complete.onclick=async()=>{
+ const authorizationCode=authCode.value.trim();
+ if(!authorizationCode)return showMsg("Informe o código de autorização.","err");
+ const r=await fetch("/api/admin/ifood-hml/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({authorizationCode})});
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok)return showMsg(d.message||"Falha ao autorizar","err");
+ showMsg("Autorização concluída. Aguarde 30 segundos e teste a conexão no Wizard.","ok");load();
+}
+load();
+</script></body></html>

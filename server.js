@@ -533,6 +533,127 @@ function addPlanDays(user, days, resetFromNow = false) {
 }
 
 let tokenCache = { accessToken: null, expiresAt: 0 };
+
+const hmlAuthPath = path.join(__dirname, "data", "ifood-homologation.json");
+
+function loadHmlAuth() {
+  try {
+    if (!fs.existsSync(hmlAuthPath)) return {};
+    return JSON.parse(fs.readFileSync(hmlAuthPath, "utf8")) || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveHmlAuth(data) {
+  fs.mkdirSync(path.dirname(hmlAuthPath), { recursive: true });
+  fs.writeFileSync(hmlAuthPath, JSON.stringify(data, null, 2));
+}
+
+let hmlAuth = loadHmlAuth();
+
+function hmlClientId() {
+  return String(process.env.IFOOD_HML_CLIENT_ID || "").trim();
+}
+function hmlClientSecret() {
+  return String(process.env.IFOOD_HML_CLIENT_SECRET || "").trim();
+}
+
+async function hmlAuthForm(pathname, data) {
+  const response = await fetch(`${API}/authentication/v1.0${pathname}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+    body: new URLSearchParams(Object.entries(data).filter(([,v]) => v !== undefined && v !== null && v !== ""))
+  });
+  const payload = await parseResponse(response);
+  if (!response.ok) {
+    const msg = payload?.message || payload?.error_description || payload?.error || JSON.stringify(payload);
+    throw new Error(`iFood homologação ${response.status}: ${msg}`);
+  }
+  return payload || {};
+}
+
+function hmlTokenValid() {
+  return Boolean(hmlAuth.accessToken && hmlAuth.expiresAt && Date.now() < hmlAuth.expiresAt - 60000);
+}
+
+async function refreshHmlToken() {
+  if (!hmlAuth.refreshToken) throw new Error("Refresh token de homologação não configurado.");
+  const payload = await hmlAuthForm("/oauth/token", {
+    grantType: "refresh_token",
+    clientId: hmlClientId(),
+    clientSecret: hmlClientSecret(),
+    refreshToken: hmlAuth.refreshToken
+  });
+  hmlAuth.accessToken = payload.accessToken || payload.access_token || "";
+  hmlAuth.refreshToken = payload.refreshToken || payload.refresh_token || hmlAuth.refreshToken;
+  const expiresIn = Number(payload.expiresIn || payload.expires_in || 21600);
+  hmlAuth.expiresAt = Date.now() + expiresIn * 1000;
+  saveHmlAuth(hmlAuth);
+  return hmlAuth.accessToken;
+}
+
+async function getHmlToken() {
+  if (hmlTokenValid()) return hmlAuth.accessToken;
+  return refreshHmlToken();
+}
+
+async function hmlIfoodRequest(endpoint, options = {}) {
+  let token = await getHmlToken();
+  const doReq = async currentToken => {
+    const headers = {
+      Authorization: `Bearer ${currentToken}`,
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {})
+    };
+    return fetch(`${API}${endpoint}`, { ...options, headers });
+  };
+  let res = await doReq(token);
+  if (res.status === 401 && hmlAuth.refreshToken) {
+    token = await refreshHmlToken();
+    res = await doReq(token);
+  }
+  const data = await parseResponse(res);
+  if (!res.ok) throw new Error(`iFood HML ${options.method || "GET"} ${endpoint} -> ${res.status}: ${JSON.stringify(data)}`);
+  return { status: res.status, data };
+}
+
+let hmlPolling = false;
+async function pollHmlEvents() {
+  if (hmlPolling || !hmlAuth.accessToken) return;
+  hmlPolling = true;
+  try {
+    const merchantHeader = pollingMerchantHeaderValue();
+    const { data } = await hmlIfoodRequest("/events/v1.0/events:polling", {
+      headers: merchantHeader ? { "x-polling-merchants": merchantHeader } : {}
+    });
+
+    const events = Array.isArray(data) ? data : (data?.events || []);
+    if (!events.length) return;
+
+    const ids = [];
+    for (const event of events) {
+      try {
+        await processEvent(event);
+      } finally {
+        if (event?.id) ids.push(event.id);
+      }
+    }
+
+    if (ids.length) {
+      await hmlIfoodRequest("/events/v1.0/events/acknowledgment", {
+        method: "POST",
+        body: JSON.stringify(ids.map(id => ({ id })))
+      });
+      log("hml-ack", `${ids.length} evento(s) de homologação confirmado(s).`);
+    }
+  } catch (err) {
+    log("hml-error", err.message);
+  } finally {
+    hmlPolling = false;
+  }
+}
+
 let orders = new Map();
 let eventsLog = [];
 let isPolling = false;
@@ -1776,6 +1897,94 @@ async function handleApi(req, res, url) {
     });
   }
 
+
+  // ===== Homologação iFood - aplicativo distribuído de TESTE =====
+  if (req.method === "GET" && url.pathname === "/api/admin/ifood-hml/status") {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    return json(res, 200, {
+      ok: true,
+      clientIdConfigured: Boolean(hmlClientId()),
+      clientSecretConfigured: Boolean(hmlClientSecret()),
+      authorized: Boolean(hmlAuth.accessToken || hmlAuth.refreshToken),
+      tokenValid: hmlTokenValid(),
+      userCode: hmlAuth.userCode || "",
+      verificationUrl: hmlAuth.verificationUrl || "",
+      pollingMerchants: homologationMerchantIds()
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/ifood-hml/start") {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+
+    if (!hmlClientId()) {
+      return json(res, 409, {
+        ok: false,
+        error: "hml_client_id_missing",
+        message: "Adicione IFOOD_HML_CLIENT_ID no Render com o Client ID do aplicativo de teste Distribuído."
+      });
+    }
+
+    try {
+      const payload = await hmlAuthForm("/oauth/userCode", { clientId: hmlClientId() });
+      hmlAuth.userCode = payload.userCode || "";
+      hmlAuth.authorizationCodeVerifier = payload.authorizationCodeVerifier || "";
+      hmlAuth.verificationUrl = payload.verificationUrlComplete || payload.verificationUrl || "https://portal.ifood.com.br/apps/code";
+      hmlAuth.userCodeExpiresAt = Date.now() + Number(payload.expiresIn || 600) * 1000;
+      saveHmlAuth(hmlAuth);
+
+      return json(res, 200, {
+        ok: true,
+        userCode: hmlAuth.userCode,
+        verificationUrl: hmlAuth.verificationUrl
+      });
+    } catch (err) {
+      return json(res, 502, { ok: false, error: "hml_user_code_failed", message: err.message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/admin/ifood-hml/complete") {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    const body = await readJson(req);
+    const authorizationCode = String(body.authorizationCode || "").trim();
+
+    if (!authorizationCode || !hmlAuth.authorizationCodeVerifier) {
+      return json(res, 400, { ok: false, message: "Gere o código primeiro e informe o authorizationCode." });
+    }
+    if (!hmlClientSecret()) {
+      return json(res, 409, {
+        ok: false,
+        error: "hml_client_secret_missing",
+        message: "Adicione IFOOD_HML_CLIENT_SECRET no Render."
+      });
+    }
+
+    try {
+      const payload = await hmlAuthForm("/oauth/token", {
+        grantType: "authorization_code",
+        clientId: hmlClientId(),
+        clientSecret: hmlClientSecret(),
+        authorizationCode,
+        authorizationCodeVerifier: hmlAuth.authorizationCodeVerifier
+      });
+
+      hmlAuth.accessToken = payload.accessToken || payload.access_token || "";
+      hmlAuth.refreshToken = payload.refreshToken || payload.refresh_token || "";
+      const expiresIn = Number(payload.expiresIn || payload.expires_in || 21600);
+      hmlAuth.expiresAt = Date.now() + expiresIn * 1000;
+      hmlAuth.authorizedAt = new Date().toISOString();
+      hmlAuth.userCode = "";
+      hmlAuth.authorizationCodeVerifier = "";
+      saveHmlAuth(hmlAuth);
+
+      return json(res, 200, { ok: true, authorized: true });
+    } catch (err) {
+      return json(res, 502, { ok: false, error: "hml_token_failed", message: err.message });
+    }
+  }
+
   return json(res, 404, { error: "Rota não encontrada" });
 }
 
@@ -1875,3 +2084,8 @@ server.listen(PORT, () => {
   setTimeout(pollEvents, 1500);
   setInterval(pollEvents, POLL_INTERVAL_MS);
 });
+
+
+// Polling exclusivo da homologação distribuída.
+setInterval(pollHmlEvents, 30000);
+setTimeout(pollHmlEvents, 5000);
