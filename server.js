@@ -902,6 +902,12 @@ async function handle99FoodWebhook(req, res) {
 }
 
 async function pollEvents() {
+  // Durante a homologação do aplicativo Distribuído, NÃO execute o polling
+  // com as credenciais legadas (IFOOD_CLIENT_ID/SECRET). O Wizard do iFood
+  // identifica o cliente OAuth que fez o polling e rejeita a conectividade
+  // se receber heartbeat do cliente antigo (ex.: merchant:<uuid>).
+  // O polling da homologação é feito exclusivamente por pollHmlEvents().
+  if (hmlAuth.accessToken || hmlAuth.refreshToken) return;
   if (isPolling) return;
   isPolling = true;
   try {
@@ -2081,6 +2087,9 @@ server.listen(PORT, () => {
   console.log(`Webhook 99Food: http://localhost:${PORT}/webhook/99food`);
   console.log(`Polling de contingência a cada ${Math.round(POLL_INTERVAL_MS / 60000)} min`);
   console.log(`Aguardando URL pública HTTPS para ativar o webhook no portal iFood...`);
+  if (hmlAuth.accessToken || hmlAuth.refreshToken) {
+    console.log("Homologação distribuída ativa: polling legado iFood DESATIVADO.");
+  }
   setTimeout(pollEvents, 1500);
   setInterval(pollEvents, POLL_INTERVAL_MS);
 });

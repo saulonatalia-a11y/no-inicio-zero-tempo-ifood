@@ -327,3 +327,9 @@ Admin:
 
 O fluxo usa userCode -> authorizationCode -> accessToken/refreshToken e executa polling
 a cada 30 segundos com x-polling-merchants.
+
+
+## v2.14 — Correção do cliente de heartbeat na homologação
+- Quando existe autorização HML distribuída, desativa o polling legado feito com `IFOOD_CLIENT_ID`.
+- Mantém somente `pollHmlEvents()` usando o token OAuth do aplicativo Distribuído de Teste.
+- Evita que o Wizard receba heartbeat identificado como `merchant:<uuid>` do cliente antigo.
