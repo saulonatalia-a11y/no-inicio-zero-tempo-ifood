@@ -1960,7 +1960,8 @@ async function handleApi(req, res, url) {
           available: rows.some(row => row?.available === true),
           states: rows.map(row => row?.state).filter(Boolean),
           validations,
-          raw: data
+          raw: data,
+          debug: JSON.stringify(data)
         });
       }
       return json(res, 200, { ok: true, results });
