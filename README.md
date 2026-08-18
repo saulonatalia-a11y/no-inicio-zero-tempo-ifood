@@ -425,3 +425,20 @@ Variáveis esperadas no Render:
 - Reativa o aceite automático durante a homologação, preservando o comportamento da Etapa 2.
 - Mantém apenas o avanço automático para PRONTO bloqueado durante a homologação, para não concluir o pedido antes do teste de cancelamento.
 - Em produção, o comportamento configurado continua normal.
+
+## v5.6 — Fluxo visual igual ao iFood
+A tela `/orders.html` agora usa cinco etapas operacionais:
+1. ACEITAR
+2. EM PREPARO
+3. PRONTO
+4. EM ROTA
+5. FINALIZADOS
+
+Mapeamento:
+- PLACED / CONFIRM_REQUESTED -> ACEITAR
+- CONFIRMED / PREPARATION -> EM PREPARO
+- READY_TO_PICKUP / DISPATCH_REQUESTED -> PRONTO
+- DISPATCHED -> EM ROTA
+- CONCLUDED / CANCELLED -> FINALIZADOS
+
+A interface mostra rótulos amigáveis como "PEDIDO DESPACHADO", "CONCLUÍDO" e "CANCELADO".

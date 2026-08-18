@@ -1060,7 +1060,17 @@ async function processEvent(event) {
 
   const current = orders.get(orderId) || { id: orderId };
 
-  if (["CANCELLATION_REQUEST_FAILED", "CRF"].includes(code)) {
+  if (["DSP", "DISPATCHED"].includes(code) || code.includes("DISPATCHED")) {
+    current.status = "DISPATCHED";
+    current.stage = "DELIVERY";
+    current.isClosed = false;
+    current.updatedAt = new Date().toISOString();
+  } else if (["RTP", "READY_TO_PICKUP"].includes(code) || code.includes("READY_TO_PICKUP")) {
+    current.status = "READY_TO_PICKUP";
+    current.stage = "READY";
+    current.isClosed = false;
+    current.updatedAt = new Date().toISOString();
+  } else if (["CANCELLATION_REQUEST_FAILED", "CRF"].includes(code)) {
     current.status = "CANCELLATION_REQUEST_FAILED";
     current.stage = "ATTENTION";
     current.updatedAt = new Date().toISOString();

@@ -13,14 +13,14 @@ button.primary{background:#ffd400;border-color:#dab900}.danger{background:#fff1f
 main{max-width:1280px;margin:24px auto;padding:0 18px}
 .hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:18px}.hero h1{margin:0 0 4px}.muted{color:#6b7280}
 .stats{display:flex;gap:8px;flex-wrap:wrap}.pill{background:#fff;border:1px solid #ddd;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:800}
-.hml-panel{background:#fff8d9;border:1px solid #ead17a;border-radius:14px;padding:14px;margin:0 0 16px}.hml-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.hml-row input{flex:1;min-width:220px;padding:11px;border:1px solid #d1d5db;border-radius:9px;font-size:14px}.board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px;align-items:start}
+.hml-panel{background:#fff8d9;border:1px solid #ead17a;border-radius:14px;padding:14px;margin:0 0 16px}.hml-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.hml-row input{flex:1;min-width:220px;padding:11px;border:1px solid #d1d5db;border-radius:9px;font-size:14px}.board{display:grid;grid-template-columns:repeat(5,minmax(210px,1fr));gap:12px;align-items:start}
 .col{background:#e9eaed;border-radius:14px;padding:12px;min-height:260px}.col h2{font-size:14px;margin:0 0 10px;display:flex;justify-content:space-between}
 .order{background:#fff;border:1px solid #ddd;border-radius:13px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
 .order-top{display:flex;justify-content:space-between;gap:8px}.order h3{margin:0}.status{font-size:11px;font-weight:900;background:#f3f4f6;padding:5px 7px;border-radius:999px}
 .items{font-size:13px;color:#555;margin:10px 0;line-height:1.45}.total{font-size:18px;font-weight:950}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.actions button{padding:8px 9px;font-size:12px}
 .empty{text-align:center;color:#777;padding:28px 8px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.48);display:grid;place-items:center;padding:16px;z-index:99}.hidden{display:none}.box{background:#fff;border-radius:16px;padding:20px;max-width:520px;width:100%}.box h2{margin-top:0}.reason-list{display:grid;gap:8px;max-height:320px;overflow:auto;margin:12px 0}.reason{border:1px solid #ddd;border-radius:10px;padding:11px;cursor:pointer}.reason input{margin-right:8px}.msg{padding:10px;border-radius:9px;margin-top:10px;background:#f3f4f6}.debug{background:#111;color:#e5e7eb;padding:12px;border-radius:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;margin-top:10px}.ok{background:#e9f8ee;color:#176c3d}.err{background:#feecef;color:#992d40}
-@media(max-width:1050px){.board{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.board{grid-template-columns:1fr}.hero{flex-direction:column;align-items:stretch}}
+@media(max-width:1250px){.board{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.board{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.board{grid-template-columns:1fr}.hero{flex-direction:column;align-items:stretch}}
 </style>
 </head>
 <body>
@@ -44,9 +44,10 @@ main{max-width:1280px;margin:24px auto;padding:0 18px}
    <div id="hmlImportMsg" class="msg hidden"></div>
   </section>
  <div class="board">
-  <section class="col"><h2>NOVOS <span id="cNew">0</span></h2><div id="new"></div></section>
+  <section class="col"><h2>ACEITAR <span id="cNew">0</span></h2><div id="new"></div></section>
   <section class="col"><h2>EM PREPARO <span id="cPrep">0</span></h2><div id="prep"></div></section>
-  <section class="col"><h2>PRONTOS / ENTREGA <span id="cReady">0</span></h2><div id="ready"></div></section>
+  <section class="col"><h2>PRONTO <span id="cReady">0</span></h2><div id="ready"></div></section>
+  <section class="col"><h2>EM ROTA <span id="cRoute">0</span></h2><div id="route"></div></section>
   <section class="col"><h2>FINALIZADOS <span id="cDone">0</span></h2><div id="done"></div></section>
  </div>
 </main>
@@ -72,22 +73,41 @@ async function api(path,opt){const r=await fetch(path,opt);const d=await r.json(
 function status(o){return String(o.status||"").toUpperCase()}
 function stage(o){
  const s=status(o);
- if(o.isClosed||["CANCELLED","CONCLUDED","COMPLETED","CON"].includes(s))return"done";
- if(["DISPATCHED","DSP","READY_TO_PICKUP","READY_REQUESTED","RTP","DISPATCH_REQUESTED"].includes(s)||o.stage==="READY"||o.stage==="DELIVERY")return"ready";
+ if(o.isClosed||["CANCELLED","CANCELED","CONCLUDED","COMPLETED","CON"].includes(s))return"done";
+
+ // Pedido efetivamente despachado / em rota
+ if(["DISPATCHED","DSP"].includes(s)||o.stage==="DELIVERY")return"route";
+
+ // Pedido pronto aguardando saída
+ if(["READY_TO_PICKUP","RTP","DISPATCH_REQUESTED"].includes(s)||o.stage==="READY")return"ready";
+
+ // Pedido confirmado e sendo preparado
  if(["CONFIRMED","CFM","PREPARATION","PREPARATION_REQUESTED","PRS","DDCR"].includes(s)||o.stage==="PREPARATION")return"prep";
+
+ // PLACED / CONFIRM_REQUESTED / novo
  return"new";
+}
+function friendlyStatus(o){
+ const s=status(o), st=stage(o);
+ if(st==="new")return "AGUARDANDO ACEITE";
+ if(st==="prep")return "EM PREPARO";
+ if(st==="ready")return "PRONTO";
+ if(st==="route")return "PEDIDO DESPACHADO";
+ if(s==="CANCELLED"||s==="CANCELED")return "CANCELADO";
+ if(st==="done")return "CONCLUÍDO";
+ return s||"PEDIDO";
 }
 function money(v){const n=Number(v?.orderAmount??v?.total??v??0);return isFinite(n)?n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}):"—"}
 function card(o){
  const items=(o.items||[]).slice(0,5).map(i=>`${i.quantity||1}x ${esc(i.name||i.description||"Item")}`).join("<br>")||"Itens não informados";
  const s=stage(o), closed=s==="done";
  return `<article class="order">
-  <div class="order-top"><div><small class="muted">iFood</small><h3>#${esc(o.displayId||o.id?.slice(0,8))}</h3></div><span class="status">${esc(status(o)||"NOVO")}</span></div>
+  <div class="order-top"><div><small class="muted">iFood</small><h3>#${esc(o.displayId||o.id?.slice(0,8))}</h3></div><span class="status">${esc(friendlyStatus(o))}</span></div>
   <div class="items">${items}</div><div class="total">${money(o.total)}</div>
   <div class="actions">
    ${s==="new"?`<button onclick="act('${o.id}','confirm')" class="primary">Aceitar</button>`:""}
    ${s==="prep"?`<button onclick="act('${o.id}','ready')" class="primary">Marcar pronto</button>`:""}
-   ${s==="ready"?`<button onclick="act('${o.id}','dispatch')">Despachar</button>`:""}
+   ${s==="ready"?`<button onclick="act('${o.id}','dispatch')" class="primary">Despachar</button>`:""}
    ${!closed?`<button onclick="openCancel('${o.id}','${esc(o.displayId||"")}')" class="danger">Cancelar pedido</button>`:""}
   </div>
  </article>`;
@@ -95,9 +115,13 @@ function card(o){
 async function load(){
  try{
   const list=await api("/api/orders");
-  const g={new:[],prep:[],ready:[],done:[]};list.forEach(o=>g[stage(o)].push(o));
+  const g={new:[],prep:[],ready:[],route:[],done:[]};list.forEach(o=>g[stage(o)].push(o));
   for(const k of Object.keys(g))$("#"+k).innerHTML=g[k].map(card).join("")||`<div class="empty">Nenhum pedido</div>`;
-  cNew.textContent=g.new.length;cPrep.textContent=g.prep.length;cReady.textContent=g.ready.length;cDone.textContent=g.done.length;
+  cNew.textContent=g.new.length;
+  cPrep.textContent=g.prep.length;
+  cReady.textContent=g.ready.length;
+  cRoute.textContent=g.route.length;
+  cDone.textContent=g.done.length;
  }catch(e){if(e.status===401)location.href="/login.html"}
 }
 async function act(id,action){
