@@ -418,3 +418,10 @@ Variáveis esperadas no Render:
 - Na homologação, as etapas passam a ser executadas manualmente no Portal da Loja.
 - Em produção, as automações configuradas continuam funcionando normalmente.
 - A tela informa quantos motivos válidos foram recebidos diretamente do iFood.
+
+## v5.5 — Cancelamento + aceite automático HML
+- Corrige o payload de `requestCancellation` para `{ "cancellationCode": "<código>" }`.
+- Mantém o parser dos motivos usando `cancelCodeId`.
+- Reativa o aceite automático durante a homologação, preservando o comportamento da Etapa 2.
+- Mantém apenas o avanço automático para PRONTO bloqueado durante a homologação, para não concluir o pedido antes do teste de cancelamento.
+- Em produção, o comportamento configurado continua normal.

@@ -1106,10 +1106,8 @@ function normalizeOrder(o) {
 
 
 function scheduleAutoConfirm(id) {
-  if (homologationModeEnabled()) {
-    log("hml-manual", `Homologação: aceite automático bloqueado para ${id}.`);
-    return;
-  }
+  // Na homologação, o aceite automático continua funcionando.
+  // Isso preserva o comportamento já validado na Etapa 2.
   if (!settings.autoConfirm || autoConfirmDone.has(id)) return;
   if (confirmTimers.has(id)) clearTimeout(confirmTimers.get(id));
 
@@ -2135,7 +2133,7 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
 
       const { data, status } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/requestCancellation`, {
         method: "POST",
-        body: JSON.stringify({ reason })
+        body: JSON.stringify({ cancellationCode: reason })
       });
 
       const current = orders.get(id) || { id };
@@ -2145,7 +2143,7 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
       current.updatedAt = new Date().toISOString();
       orders.set(id, current);
 
-      log("cancel", `Cancelamento solicitado para ${id} com motivo ${reason}.`);
+      log("cancel", `Cancelamento solicitado para ${id} com cancellationCode=${reason}.`);
       return json(res, 202, { ok: true, accepted: true, status, data, order: current });
     } catch (err) {
       log("cancel-error", `Falha ao cancelar ${id}: ${err.message}`);
