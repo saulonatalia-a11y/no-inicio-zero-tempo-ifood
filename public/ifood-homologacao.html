@@ -86,6 +86,9 @@ testConnection.onclick=async()=>{
    connectionStatus.textContent="❌ O iFood não retornou status para a loja.";
    return;
  }
+
+ alert("RETORNO DO IFOOD:\n\n" + (item.debug || JSON.stringify(item, null, 2)));
+ 
  const ok=String(item.connectedState).toUpperCase()==="OK";
  connectionStatus.className="status "+(ok?"ok":"err");
  const states=(item.states||[]).join(", ")||"NÃO INFORMADO";
