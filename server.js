@@ -1060,7 +1060,11 @@ async function processEvent(event) {
 
   const current = orders.get(orderId) || { id: orderId };
 
-  if (["CAN", "CANCELLED", "CANCELED"].includes(code) || code.includes("CANCEL")) {
+  if (["CANCELLATION_REQUEST_FAILED", "CRF"].includes(code)) {
+    current.status = "CANCELLATION_REQUEST_FAILED";
+    current.stage = "ATTENTION";
+    current.updatedAt = new Date().toISOString();
+  } else if (["CAN", "CANCELLED", "CANCELED"].includes(code) || code === "CANCELLED" || code.includes("CANCELLED")) {
     current.status = "CANCELLED";
     current.stage = "FINISHED";
     current.isClosed = true;
@@ -1902,6 +1906,89 @@ async function handleApi(req, res, url) {
     const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
     await pollEvents();
     return json(res, 200, { ok: true });
+  }
+
+
+  // ===== Cancelamento iFood =====
+  // Os motivos são SEMPRE consultados dinamicamente no iFood para o pedido específico.
+  const cancellationReasonsMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/cancellation-reasons$/);
+  if (req.method === "GET" && cancellationReasonsMatch) {
+    const id = decodeURIComponent(cancellationReasonsMatch[1]);
+    const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
+    const order = orders.get(id);
+    if (!order) return json(res, 404, { ok: false, error: "order_not_found" });
+    if (!userCanAccessOrder(activeUser, order)) {
+      return json(res, 403, { ok: false, error: "order_not_owned_by_store" });
+    }
+
+    try {
+      const { data } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
+      const reasons = Array.isArray(data)
+        ? data
+        : (Array.isArray(data?.reasons) ? data.reasons : []);
+
+      const normalized = reasons
+        .map(r => ({
+          code: String(r?.code ?? r?.id ?? r?.cancellationCode ?? "").trim(),
+          description: String(r?.description ?? r?.name ?? r?.reason ?? "").trim()
+        }))
+        .filter(r => r.code);
+
+      log("cancel", `Motivos de cancelamento consultados para ${id}: ${normalized.length}.`);
+      return json(res, 200, { ok: true, reasons: normalized });
+    } catch (err) {
+      log("cancel-error", `Falha ao consultar motivos de ${id}: ${err.message}`);
+      return json(res, 502, { ok: false, error: "cancellation_reasons_failed", message: err.message });
+    }
+  }
+
+  const cancelOrderMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/cancel$/);
+  if (req.method === "POST" && cancelOrderMatch) {
+    const id = decodeURIComponent(cancelOrderMatch[1]);
+    const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
+    const order = orders.get(id);
+    if (!order) return json(res, 404, { ok: false, error: "order_not_found" });
+    if (!userCanAccessOrder(activeUser, order)) {
+      return json(res, 403, { ok: false, error: "order_not_owned_by_store" });
+    }
+
+    const body = await readJson(req);
+    const reason = String(body.reason || "").trim();
+    if (!reason) return json(res, 400, { ok: false, error: "reason_required" });
+
+    try {
+      // Confirma no iFood que o motivo ainda é válido para ESTE pedido.
+      const { data: reasonsData } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
+      const reasons = Array.isArray(reasonsData)
+        ? reasonsData
+        : (Array.isArray(reasonsData?.reasons) ? reasonsData.reasons : []);
+      const valid = reasons.some(r => String(r?.code ?? r?.id ?? r?.cancellationCode ?? "").trim() === reason);
+      if (!valid) {
+        return json(res, 409, {
+          ok: false,
+          error: "invalid_cancellation_reason",
+          message: "Esse motivo não está mais disponível para este pedido. Atualize a lista."
+        });
+      }
+
+      const { data, status } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/requestCancellation`, {
+        method: "POST",
+        body: JSON.stringify({ reason })
+      });
+
+      const current = orders.get(id) || { id };
+      current.status = "CANCELLATION_REQUESTED";
+      current.stage = "CANCELLATION";
+      current.cancellationReason = reason;
+      current.updatedAt = new Date().toISOString();
+      orders.set(id, current);
+
+      log("cancel", `Cancelamento solicitado para ${id} com motivo ${reason}.`);
+      return json(res, 202, { ok: true, accepted: true, status, data, order: current });
+    } catch (err) {
+      log("cancel-error", `Falha ao cancelar ${id}: ${err.message}`);
+      return json(res, 502, { ok: false, error: "cancellation_failed", message: err.message });
+    }
   }
 
   const actionMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/(confirm|start|ready|dispatch)$/);

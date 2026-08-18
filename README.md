@@ -382,3 +382,13 @@ Variáveis esperadas no Render:
 - IFOOD_HML_CLIENT_ID
 - IFOOD_HML_CLIENT_SECRET
 - IFOOD_POLLING_MERCHANTS
+
+## v5 — Portal da Loja + Cancelamento iFood
+- Nova tela `/orders.html` para cada loja/cliente acompanhar os próprios pedidos.
+- Admin também pode abrir `/orders.html` para testes/homologação.
+- Ações: Aceitar, Marcar pronto, Despachar e Cancelar.
+- Cancelamento consulta dinamicamente `GET /order/v1.0/orders/{id}/cancellationReasons`.
+- Cancelamento usa `POST /order/v1.0/orders/{id}/requestCancellation`.
+- Nenhum motivo de cancelamento é fixado no código.
+- O resultado final do cancelamento é recebido pelo polling.
+- Login de cliente com loja configurada passa a abrir diretamente o portal de pedidos.
