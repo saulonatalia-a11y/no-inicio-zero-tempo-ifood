@@ -1890,7 +1890,104 @@ async function handleApi(req, res, url) {
     return json(res, 200, nextPrint);
   }
 
-  if (req.method === "GET" && url.pathname === "/api/orders") {
+  
+  // ===== Contexto do Portal de Pedidos =====
+  // Em homologação, usa a autorização HML já aprovada no Wizard.
+  // Em produção, cada cliente continua usando a própria conexão iFood.
+  if (req.method === "GET" && url.pathname === "/api/orders/context") {
+    const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
+
+    const hmlMode = homologationModeEnabled();
+    const hmlAuthorized = Boolean(
+      hmlMode &&
+      hmlAuth &&
+      (hmlAuth.accessToken || hmlAuth.refreshToken)
+    );
+
+    return json(res, 200, {
+      ok: true,
+      mode: hmlMode ? "homologation" : "production",
+      authorized: hmlMode
+        ? hmlAuthorized
+        : Boolean(activeUser.ifoodConnected && activeUser.ifoodMerchantId),
+      merchantId: hmlMode
+        ? (homologationMerchantIds()[0] || "")
+        : (activeUser.ifoodMerchantId || ""),
+      merchantName: hmlMode
+        ? "Loja de teste iFood"
+        : (activeUser.ifoodMerchantName || ""),
+      canImportHomologationOrder: Boolean(hmlMode && activeUser.role === "admin")
+    });
+  }
+
+  // O Render reinicia a memória a cada deploy. Durante a homologação, o iFood
+  // informa o UUID exato do pedido da etapa. O admin pode recarregar esse pedido
+  // diretamente pela Order API HML para continuar o teste sem gerar outro pedido.
+  if (req.method === "POST" && url.pathname === "/api/orders/hml-import") {
+    const admin = requireAdmin(req, res); if (!admin) return;
+
+    if (!homologationModeEnabled()) {
+      return json(res, 409, {
+        ok: false,
+        error: "homologation_mode_disabled",
+        message: "Importação manual só é permitida no modo de homologação."
+      });
+    }
+
+    if (!(hmlAuth && (hmlAuth.accessToken || hmlAuth.refreshToken))) {
+      return json(res, 409, {
+        ok: false,
+        error: "homologation_not_authorized",
+        message: "Autorize primeiro a loja de teste na tela de Homologação iFood."
+      });
+    }
+
+    const body = await readJson(req);
+    const orderId = String(body.orderId || "").trim();
+
+    if (!orderId) {
+      return json(res, 400, {
+        ok: false,
+        error: "order_id_required",
+        message: "Informe o UUID do pedido mostrado pelo iFood Developer."
+      });
+    }
+
+    try {
+      // getOrderDetail() usa ifoodRequest(); em modo HML ele é direcionado
+      // automaticamente para hmlIfoodRequest().
+      const detail = await getOrderDetail(orderId);
+      const normalized = normalizeOrder(detail);
+
+      normalized.id = normalized.id || orderId;
+      normalized.status = normalized.status || detail?.status || "PLACED";
+      normalized.updatedAt = new Date().toISOString();
+
+      // Se o iFood não devolver displayId, permite usar o número visual só
+      // para facilitar a identificação na interface.
+      const displayId = String(body.displayId || "").trim();
+      if (displayId && (!normalized.displayId || normalized.displayId === orderId.slice(0, 8))) {
+        normalized.displayId = displayId;
+      }
+
+      orders.set(orderId, normalized);
+      log("hml-import", `Pedido de homologação ${normalized.displayId || orderId} carregado no Portal da Loja.`);
+
+      return json(res, 200, {
+        ok: true,
+        order: normalized
+      });
+    } catch (err) {
+      log("hml-import-error", `Falha ao carregar pedido ${orderId}: ${err.message}`);
+      return json(res, 502, {
+        ok: false,
+        error: "hml_order_import_failed",
+        message: err.message
+      });
+    }
+  }
+
+if (req.method === "GET" && url.pathname === "/api/orders") {
     const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
     const visibleOrders = [...orders.values()]
       .filter(order => userCanAccessOrder(activeUser, order))

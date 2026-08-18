@@ -13,7 +13,7 @@ button.primary{background:#ffd400;border-color:#dab900}.danger{background:#fff1f
 main{max-width:1280px;margin:24px auto;padding:0 18px}
 .hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:18px}.hero h1{margin:0 0 4px}.muted{color:#6b7280}
 .stats{display:flex;gap:8px;flex-wrap:wrap}.pill{background:#fff;border:1px solid #ddd;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:800}
-.board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px;align-items:start}
+.hml-panel{background:#fff8d9;border:1px solid #ead17a;border-radius:14px;padding:14px;margin:0 0 16px}.hml-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.hml-row input{flex:1;min-width:220px;padding:11px;border:1px solid #d1d5db;border-radius:9px;font-size:14px}.board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px;align-items:start}
 .col{background:#e9eaed;border-radius:14px;padding:12px;min-height:260px}.col h2{font-size:14px;margin:0 0 10px;display:flex;justify-content:space-between}
 .order{background:#fff;border:1px solid #ddd;border-radius:13px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
 .order-top{display:flex;justify-content:space-between;gap:8px}.order h3{margin:0}.status{font-size:11px;font-weight:900;background:#f3f4f6;padding:5px 7px;border-radius:999px}
@@ -33,6 +33,16 @@ main{max-width:1280px;margin:24px auto;padding:0 18px}
   <div><div class="muted">OPERAÇÃO DA LOJA</div><h1>Pedidos iFood</h1><div id="storeLine" class="muted">Carregando loja...</div></div>
   <div class="stats"><div class="pill">Atualização: 5s</div><div id="connection" class="pill">iFood: verificando</div></div>
  </div>
+ <section id="hmlPanel" class="hml-panel hidden">
+   <b>Homologação iFood</b>
+   <div class="muted" style="margin-top:4px">Após um deploy, pedidos já confirmados podem não voltar no polling porque já receberam ACK. Cole aqui o ID exibido pelo iFood Developer para recarregar o pedido diretamente pela API de teste.</div>
+   <div class="hml-row">
+    <input id="hmlOrderId" placeholder="UUID do pedido (ex.: 8cf5...)">
+    <input id="hmlDisplayId" placeholder="Número do pedido (ex.: 1899)">
+    <button id="hmlImportBtn" class="primary">Carregar pedido de homologação</button>
+   </div>
+   <div id="hmlImportMsg" class="msg hidden"></div>
+  </section>
  <div class="board">
   <section class="col"><h2>NOVOS <span id="cNew">0</span></h2><div id="new"></div></section>
   <section class="col"><h2>EM PREPARO <span id="cPrep">0</span></h2><div id="prep"></div></section>
@@ -117,10 +127,53 @@ confirmCancel.onclick=async()=>{
 async function boot(){
  const d=await api("/api/auth/me");me=d.user;if(!me)return location.href="/login.html";
  if(me.role==="admin")adminBack.classList.remove("hidden");
- storeLine.textContent=me.role==="admin"?"Modo administrador — visualizando operação recebida":(me.storeName||"Minha loja");
- try{const i=await api("/api/integrations/ifood");connection.textContent=i.integration?.connected?"iFood: conectado":"iFood: aguardando conexão"}catch{connection.textContent="iFood: homologação/operacional"}
+
+ try{
+  const ctx=await api("/api/orders/context");
+  if(ctx.mode==="homologation"){
+    storeLine.textContent=ctx.merchantName||"Loja de teste iFood";
+    connection.textContent=ctx.authorized?"iFood HML: conectado":"iFood HML: não autorizado";
+    if(ctx.canImportHomologationOrder)hmlPanel.classList.remove("hidden");
+  }else{
+    storeLine.textContent=me.role==="admin"?"Modo administrador — visualizando operação recebida":(ctx.merchantName||me.storeName||"Minha loja");
+    connection.textContent=ctx.authorized?"iFood: conectado":"iFood: aguardando conexão";
+  }
+ }catch{
+  storeLine.textContent=me.role==="admin"?"Modo administrador":"Minha loja";
+  connection.textContent="iFood: verificando";
+ }
+
  load();setInterval(load,5000);
 }
+
+hmlImportBtn.onclick=async()=>{
+ const orderId=hmlOrderId.value.trim();
+ const displayId=hmlDisplayId.value.trim();
+ if(!orderId){
+  hmlImportMsg.className="msg err";
+  hmlImportMsg.textContent="Cole o UUID do pedido mostrado pelo iFood Developer.";
+  return;
+ }
+ hmlImportBtn.disabled=true;
+ hmlImportMsg.className="msg";
+ hmlImportMsg.textContent="Carregando pedido pela API de homologação...";
+ try{
+  const d=await api("/api/orders/hml-import",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({orderId,displayId})
+  });
+  hmlImportMsg.className="msg ok";
+  hmlImportMsg.textContent=`Pedido #${d.order?.displayId||displayId||orderId.slice(0,8)} carregado.`;
+  await load();
+ }catch(e){
+  hmlImportMsg.className="msg err";
+  hmlImportMsg.textContent=e.message;
+ }finally{
+  hmlImportBtn.disabled=false;
+ }
+};
+
 async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}
 boot();
 </script>

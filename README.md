@@ -392,3 +392,12 @@ Variáveis esperadas no Render:
 - Nenhum motivo de cancelamento é fixado no código.
 - O resultado final do cancelamento é recebido pelo polling.
 - Login de cliente com loja configurada passa a abrir diretamente o portal de pedidos.
+
+## v5.1 — Portal da Loja integrado à homologação
+- `/orders.html` reconhece automaticamente `IFOOD_HOMOLOGATION_MODE=true`.
+- O status do topo usa a autorização HML já concluída no Wizard.
+- Admin recebe um painel temporário de homologação para recarregar um pedido pelo UUID informado pelo iFood Developer.
+- Isso resolve o caso em que o Render reinicia e o pedido antigo não reaparece no polling porque seus eventos já foram confirmados por ACK.
+- Motivos de cancelamento continuam sendo consultados dinamicamente em `/cancellationReasons`.
+- O cancelamento continua usando `/requestCancellation` e o resultado chega pelo polling.
+- Em produção, clientes continuam usando a própria conexão iFood e não veem o painel de importação HML.
