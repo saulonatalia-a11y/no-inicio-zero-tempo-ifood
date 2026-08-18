@@ -128,12 +128,15 @@ async function openCancel(id,display){
    return;
   }
 
-  reasons.innerHTML=d.reasons.map(r=>`
-   <label class="reason">
-    <input type="radio" name="reason" value="${esc(r.code)}">
-    <b>${esc(r.code)}</b> — ${esc(r.description||"Motivo")}
-   </label>
-  `).join("");
+  reasons.innerHTML=`
+   <div class="msg ok" style="margin:0 0 10px">Motivos recebidos do iFood: ${d.reasons.length}</div>
+   ${d.reasons.map(r=>`
+    <label class="reason">
+     <input type="radio" name="reason" value="${esc(r.code)}">
+     <b>${esc(r.code)}</b> — ${esc(r.description||"Motivo")}
+    </label>
+   `).join("")}
+  `;
 
   reasons.querySelectorAll('input[name="reason"]').forEach(x=>x.onchange=()=>selectedReason=x.value);
  }catch(e){

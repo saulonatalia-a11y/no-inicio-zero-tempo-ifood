@@ -409,3 +409,12 @@ Variáveis esperadas no Render:
 - O parser aceita, sem inventar dados, os formatos: array direto, `reasons`, `cancellationReasons`, `data` e `items`.
 - O log do Render grava `cancel-diagnostic` com HTTP, tipo do retorno e JSON bruto.
 - A validação antes de `requestCancellation` usa o mesmo parser tolerante.
+
+## v5.3 — Cancelamento HML corrigido
+- Corrige o parser usando o campo real observado no iFood HML: `cancelCodeId`.
+- Mantém compatibilidade com `code`, `id`, `cancellationCode` e `reasonCode`.
+- A validação antes de `requestCancellation` também reconhece `cancelCodeId`.
+- Durante `IFOOD_HOMOLOGATION_MODE=true`, aceite automático e "marcar pronto" automático ficam bloqueados.
+- Na homologação, as etapas passam a ser executadas manualmente no Portal da Loja.
+- Em produção, as automações configuradas continuam funcionando normalmente.
+- A tela informa quantos motivos válidos foram recebidos diretamente do iFood.
