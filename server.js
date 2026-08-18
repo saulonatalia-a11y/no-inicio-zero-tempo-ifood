@@ -638,9 +638,11 @@ async function pollHmlEvents() {
     // aplicativo (D), não como merchant:<uuid>. O token D já limita o acesso
     // aos merchants autorizados.
     const merchantHeader = pollingMerchantHeaderValue();
-    const useMerchantHeader = !homologationModeEnabled();
+
     const { data } = await hmlIfoodRequest("/events/v1.0/events:polling", {
-      headers: (useMerchantHeader && merchantHeader) ? { "x-polling-merchants": merchantHeader } : {}
+      headers: merchantHeader
+        ? { "x-polling-merchants": merchantHeader }
+        : {}
     });
 
     const events = Array.isArray(data) ? data : (data?.events || []);
