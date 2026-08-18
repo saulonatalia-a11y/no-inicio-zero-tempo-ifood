@@ -1953,7 +1953,10 @@ async function handleApi(req, res, url) {
         const { data } = await hmlIfoodRequest(`/merchant/v1.0/merchants/${encodeURIComponent(merchantId)}/status`);
         const rows = Array.isArray(data) ? data : [data].filter(Boolean);
         const validations = rows.flatMap(row => Array.isArray(row?.validations) ? row.validations : []);
-        const connected = validations.find(v => String(v?.code || "").toLowerCase() === "is-connected");
+        const connected = validations.find(v => {
+          const code = String(v?.code || "").toLowerCase();
+          return code === "is-connected" || code === "is.connected.config";
+        });
         results.push({
           merchantId,
           connectedState: connected?.state || "NÃO INFORMADO",
