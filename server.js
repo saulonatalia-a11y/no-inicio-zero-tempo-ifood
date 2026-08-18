@@ -2019,23 +2019,65 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
     }
 
     try {
-      const { data } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
-      const reasons = Array.isArray(data)
-        ? data
-        : (Array.isArray(data?.reasons) ? data.reasons : []);
+      const { data, status } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
+
+      // Diagnóstico v5.2:
+      // Guarda o retorno bruto para podermos ver exatamente o formato que o iFood HML enviou.
+      const rawType = Array.isArray(data) ? "array" : typeof data;
+
+      // Aceita vários formatos possíveis sem "inventar" motivos.
+      let reasons = [];
+      if (Array.isArray(data)) reasons = data;
+      else if (Array.isArray(data?.reasons)) reasons = data.reasons;
+      else if (Array.isArray(data?.cancellationReasons)) reasons = data.cancellationReasons;
+      else if (Array.isArray(data?.data)) reasons = data.data;
+      else if (Array.isArray(data?.items)) reasons = data.items;
 
       const normalized = reasons
         .map(r => ({
-          code: String(r?.code ?? r?.id ?? r?.cancellationCode ?? "").trim(),
-          description: String(r?.description ?? r?.name ?? r?.reason ?? "").trim()
+          code: String(
+            r?.code ??
+            r?.id ??
+            r?.cancellationCode ??
+            r?.reasonCode ??
+            ""
+          ).trim(),
+          description: String(
+            r?.description ??
+            r?.name ??
+            r?.reason ??
+            r?.message ??
+            r?.title ??
+            ""
+          ).trim()
         }))
         .filter(r => r.code);
 
-      log("cancel", `Motivos de cancelamento consultados para ${id}: ${normalized.length}.`);
-      return json(res, 200, { ok: true, reasons: normalized });
+      log(
+        "cancel-diagnostic",
+        `Motivos cancelamento ${id}: HTTP ${status}; tipo=${rawType}; normalizados=${normalized.length}; raw=${JSON.stringify(data)}`
+      );
+
+      return json(res, 200, {
+        ok: true,
+        reasons: normalized,
+        diagnostic: {
+          endpoint: `/order/v1.0/orders/${id}/cancellationReasons`,
+          httpStatus: status,
+          rawType,
+          raw: data
+        }
+      });
     } catch (err) {
       log("cancel-error", `Falha ao consultar motivos de ${id}: ${err.message}`);
-      return json(res, 502, { ok: false, error: "cancellation_reasons_failed", message: err.message });
+      return json(res, 502, {
+        ok: false,
+        error: "cancellation_reasons_failed",
+        message: err.message,
+        diagnostic: {
+          endpoint: `/order/v1.0/orders/${id}/cancellationReasons`
+        }
+      });
     }
   }
 
@@ -2056,10 +2098,23 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
     try {
       // Confirma no iFood que o motivo ainda é válido para ESTE pedido.
       const { data: reasonsData } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
-      const reasons = Array.isArray(reasonsData)
-        ? reasonsData
-        : (Array.isArray(reasonsData?.reasons) ? reasonsData.reasons : []);
-      const valid = reasons.some(r => String(r?.code ?? r?.id ?? r?.cancellationCode ?? "").trim() === reason);
+
+      let reasons = [];
+      if (Array.isArray(reasonsData)) reasons = reasonsData;
+      else if (Array.isArray(reasonsData?.reasons)) reasons = reasonsData.reasons;
+      else if (Array.isArray(reasonsData?.cancellationReasons)) reasons = reasonsData.cancellationReasons;
+      else if (Array.isArray(reasonsData?.data)) reasons = reasonsData.data;
+      else if (Array.isArray(reasonsData?.items)) reasons = reasonsData.items;
+
+      const valid = reasons.some(r =>
+        String(
+          r?.code ??
+          r?.id ??
+          r?.cancellationCode ??
+          r?.reasonCode ??
+          ""
+        ).trim() === reason
+      );
       if (!valid) {
         return json(res, 409, {
           ok: false,

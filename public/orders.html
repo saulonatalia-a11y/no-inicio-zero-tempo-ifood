@@ -19,7 +19,7 @@ main{max-width:1280px;margin:24px auto;padding:0 18px}
 .order-top{display:flex;justify-content:space-between;gap:8px}.order h3{margin:0}.status{font-size:11px;font-weight:900;background:#f3f4f6;padding:5px 7px;border-radius:999px}
 .items{font-size:13px;color:#555;margin:10px 0;line-height:1.45}.total{font-size:18px;font-weight:950}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.actions button{padding:8px 9px;font-size:12px}
 .empty{text-align:center;color:#777;padding:28px 8px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.48);display:grid;place-items:center;padding:16px;z-index:99}.hidden{display:none}.box{background:#fff;border-radius:16px;padding:20px;max-width:520px;width:100%}.box h2{margin-top:0}.reason-list{display:grid;gap:8px;max-height:320px;overflow:auto;margin:12px 0}.reason{border:1px solid #ddd;border-radius:10px;padding:11px;cursor:pointer}.reason input{margin-right:8px}.msg{padding:10px;border-radius:9px;margin-top:10px;background:#f3f4f6}.ok{background:#e9f8ee;color:#176c3d}.err{background:#feecef;color:#992d40}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.48);display:grid;place-items:center;padding:16px;z-index:99}.hidden{display:none}.box{background:#fff;border-radius:16px;padding:20px;max-width:520px;width:100%}.box h2{margin-top:0}.reason-list{display:grid;gap:8px;max-height:320px;overflow:auto;margin:12px 0}.reason{border:1px solid #ddd;border-radius:10px;padding:11px;cursor:pointer}.reason input{margin-right:8px}.msg{padding:10px;border-radius:9px;margin-top:10px;background:#f3f4f6}.debug{background:#111;color:#e5e7eb;padding:12px;border-radius:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;margin-top:10px}.ok{background:#e9f8ee;color:#176c3d}.err{background:#feecef;color:#992d40}
 @media(max-width:1050px){.board{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.board{grid-template-columns:1fr}.hero{flex-direction:column;align-items:stretch}}
 </style>
 </head>
@@ -105,13 +105,41 @@ async function act(id,action){
 }
 async function openCancel(id,display){
  currentCancel=id;selectedReason=null;cancelDisplay.textContent=display?`#${display}`:"";
- reasons.innerHTML="Consultando motivos...";cancelMsg.className="msg hidden";cancelModal.classList.remove("hidden");
+ reasons.innerHTML="Consultando motivos no iFood...";cancelMsg.className="msg hidden";cancelModal.classList.remove("hidden");
  try{
   const d=await api(`/api/orders/${encodeURIComponent(id)}/cancellation-reasons`);
-  if(!d.reasons?.length){reasons.innerHTML='<div class="empty">O iFood não disponibilizou motivos de cancelamento para este pedido.</div>';return}
-  reasons.innerHTML=d.reasons.map(r=>`<label class="reason"><input type="radio" name="reason" value="${esc(r.code)}"> <b>${esc(r.code)}</b> — ${esc(r.description||"Motivo")}</label>`).join("");
+
+  if(!d.reasons?.length){
+   const raw=d?.diagnostic?.raw ?? null;
+   const diag={
+    endpoint:d?.diagnostic?.endpoint,
+    httpStatus:d?.diagnostic?.httpStatus,
+    rawType:d?.diagnostic?.rawType,
+    raw
+   };
+
+   reasons.innerHTML=`
+    <div class="empty" style="padding-bottom:10px">
+      O TurboFlow consultou o iFood, mas não conseguiu montar a lista de motivos.
+    </div>
+    <div style="font-weight:900;margin:8px 0">DIAGNÓSTICO DO RETORNO DO IFOOD</div>
+    <div class="debug">${esc(JSON.stringify(diag,null,2))}</div>
+   `;
+   return;
+  }
+
+  reasons.innerHTML=d.reasons.map(r=>`
+   <label class="reason">
+    <input type="radio" name="reason" value="${esc(r.code)}">
+    <b>${esc(r.code)}</b> — ${esc(r.description||"Motivo")}
+   </label>
+  `).join("");
+
   reasons.querySelectorAll('input[name="reason"]').forEach(x=>x.onchange=()=>selectedReason=x.value);
- }catch(e){reasons.innerHTML=`<div class="msg err">Não foi possível consultar os motivos: ${esc(e.message)}</div>`}
+ }catch(e){
+  const diagnostic=e?.data?.diagnostic ? `\n\n${JSON.stringify(e.data.diagnostic,null,2)}` : "";
+  reasons.innerHTML=`<div class="msg err">Não foi possível consultar os motivos: ${esc(e.message)}</div><div class="debug">${esc(diagnostic)}</div>`;
+ }
 }
 function closeCancel(){cancelModal.classList.add("hidden");currentCancel=null;selectedReason=null}
 confirmCancel.onclick=async()=>{

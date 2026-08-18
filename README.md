@@ -401,3 +401,11 @@ Variáveis esperadas no Render:
 - Motivos de cancelamento continuam sendo consultados dinamicamente em `/cancellationReasons`.
 - O cancelamento continua usando `/requestCancellation` e o resultado chega pelo polling.
 - Em produção, clientes continuam usando a própria conexão iFood e não veem o painel de importação HML.
+
+## v5.2 — Diagnóstico de motivos de cancelamento
+- Mantém toda a v5.1.
+- A rota de `cancellationReasons` agora exibe também o retorno bruto do iFood HML.
+- A interface mostra o JSON de diagnóstico quando a lista normalizada vier vazia.
+- O parser aceita, sem inventar dados, os formatos: array direto, `reasons`, `cancellationReasons`, `data` e `items`.
+- O log do Render grava `cancel-diagnostic` com HTTP, tipo do retorno e JSON bruto.
+- A validação antes de `requestCancellation` usa o mesmo parser tolerante.
