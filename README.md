@@ -366,3 +366,19 @@ Depois da homologação, mude para `false` ou remova a variável.
 - Em `IFOOD_HOMOLOGATION_MODE=true`, o polling do Teste (D) não envia `x-polling-merchants` durante a etapa de conectividade.
 - Objetivo: fazer o heartbeat do Wizard ser associado ao client do aplicativo D, evitando a identificação `merchant:<uuid>`.
 - Fora do modo de homologação, o comportamento anterior com filtro por merchant permanece.
+
+## iFood — POLLING ONLY
+
+Esta versão foi preparada para homologação via POLLING:
+- Webhook do iFood desativado.
+- 99Food não foi alterado.
+- Polling do iFood/HML continua a cada 30 segundos.
+- `x-polling-merchants` é enviado no polling.
+- Durante `IFOOD_HOMOLOGATION_MODE=true`, o polling legado/Teste (C) não roda.
+- Logs de inicialização mostram `iFood EVENT MODE: POLLING ONLY`.
+
+Variáveis esperadas no Render:
+- IFOOD_HOMOLOGATION_MODE=true
+- IFOOD_HML_CLIENT_ID
+- IFOOD_HML_CLIENT_SECRET
+- IFOOD_POLLING_MERCHANTS

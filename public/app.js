@@ -120,7 +120,7 @@ async function loadStatus(){
     c.textContent = s.configured ? "iFood conectado" : "Falta configurar credenciais";
     c.className = "connection " + (s.configured ? "ok" : "bad");
     $("#autoDispatchMetric").textContent = `${s.acceptDelaySeconds ?? 5}s + ${s.readyDelaySeconds ?? 10}s`;
-    const mode = s.transport === "webhook" ? "Tempo real / Webhook" : "Polling";
+    const mode = s.transport === "webhook" ? "Polling / 30s" : "Polling";
     const statusEl = document.querySelector(".metric strong.ok");
     if (statusEl) statusEl.textContent = s.configured ? mode : "Não configurado";
   }catch(e){ console.error(e); }

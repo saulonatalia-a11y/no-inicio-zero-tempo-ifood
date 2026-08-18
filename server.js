@@ -552,6 +552,12 @@ function saveHmlAuth(data) {
 
 let hmlAuth = loadHmlAuth();
 
+
+function ifoodEventMode() {
+  // Nesta versão o iFood usa exclusivamente POLLING.
+  return "POLLING";
+}
+
 function homologationModeEnabled() {
   return String(process.env.IFOOD_HOMOLOGATION_MODE || "").trim().toLowerCase() === "true";
 }
@@ -829,7 +835,7 @@ async function handleWebhook(req, res) {
         // KEEPALIVE é recebido e registrado; presença avançada será configurada
         // quando tivermos a URL pública e o payload real do portal.
         if (code === "KEEPALIVE") {
-          log("heartbeat", "KEEPALIVE recebido do iFood.");
+          log("heartbeat", "KEEPALIVE recebido no fluxo de eventos iFood.");
           continue;
         }
 
@@ -922,6 +928,9 @@ async function handle99FoodWebhook(req, res) {
 }
 
 async function pollEvents() {
+  // iFood em homologação: somente o polling Distribuído/HML pode rodar.
+  if (homologationModeEnabled()) return;
+
   // Modo homologação: bloqueia totalmente o Teste (C) desde o boot.
   if (homologationModeEnabled()) return;
 
@@ -1811,8 +1820,7 @@ async function handleApi(req, res, url) {
       readyDelaySeconds: settings.readyDelaySeconds,
       printSettings: settings.printSettings,
       pollIntervalMs: POLL_INTERVAL_MS,
-      transport: "webhook",
-      webhookPath: "/webhook/ifood",
+      transport: "polling",
       webhook99FoodPath: "/webhook/99food"
     });
   }
@@ -2082,20 +2090,7 @@ const server = http.createServer(async (req, res) => {
         status: "ready"
       });
     }
-
-    if (req.method === "POST" && url.pathname === "/webhook/ifood") {
-      return await handleWebhook(req, res);
-    }
-
-    if (req.method === "GET" && url.pathname === "/webhook/ifood/health") {
-      return json(res, 200, {
-        ok: true,
-        webhook: "/webhook/ifood",
-        configured: Boolean(process.env.IFOOD_CLIENT_SECRET)
-      });
-    }
-
-    if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
+if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
     return serveStatic(req, res, url);
   } catch (err) {
     log("error", err.message);
@@ -2105,6 +2100,9 @@ const server = http.createServer(async (req, res) => {
 
 
 server.listen(PORT, () => {
+  console.log("=== iFood EVENT MODE: POLLING ONLY ===");
+  console.log("iFood: POLLING ONLY (webhook removido)");
+  console.log("Polling iFood/HML: ATIVO a cada 30s");
   if (homologationModeEnabled()) {
     console.log("=== MODO HOMOLOGAÇÃO iFood ATIVO ===");
     console.log("Teste (C): DESATIVADO");
@@ -2112,10 +2110,8 @@ server.listen(PORT, () => {
     console.log("Heartbeat HML: modo CLIENT (sem x-polling-merchants durante conectividade)");
   }
   console.log(`TurboFlow: http://localhost:${PORT}`);
-  console.log(`Webhook local: http://localhost:${PORT}/webhook/ifood`);
   console.log(`Webhook 99Food: http://localhost:${PORT}/webhook/99food`);
   console.log(`Polling de contingência a cada ${Math.round(POLL_INTERVAL_MS / 60000)} min`);
-  console.log(`Aguardando URL pública HTTPS para ativar o webhook no portal iFood...`);
   if (hmlAuth.accessToken || hmlAuth.refreshToken) {
     console.log("Homologação distribuída ativa: polling legado iFood DESATIVADO.");
   }
