@@ -1935,6 +1935,41 @@ async function handleApi(req, res, url) {
 
 
   // ===== Homologação iFood - aplicativo distribuído de TESTE =====
+  if (req.method === "GET" && url.pathname === "/api/admin/ifood-hml/merchant-status") {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+
+    const merchantIds = homologationMerchantIds();
+    if (!merchantIds.length) {
+      return json(res, 409, { ok: false, message: "IFOOD_POLLING_MERCHANTS não configurado." });
+    }
+    if (!hmlAuth.accessToken && !hmlAuth.refreshToken) {
+      return json(res, 409, { ok: false, message: "Homologação ainda não autorizada." });
+    }
+
+    try {
+      const results = [];
+      for (const merchantId of merchantIds) {
+        const { data } = await hmlIfoodRequest(`/merchant/v1.0/merchants/${encodeURIComponent(merchantId)}/status`);
+        const rows = Array.isArray(data) ? data : [data].filter(Boolean);
+        const validations = rows.flatMap(row => Array.isArray(row?.validations) ? row.validations : []);
+        const connected = validations.find(v => String(v?.code || "").toLowerCase() === "is-connected");
+        results.push({
+          merchantId,
+          connectedState: connected?.state || "NÃO INFORMADO",
+          available: rows.some(row => row?.available === true),
+          states: rows.map(row => row?.state).filter(Boolean),
+          validations,
+          raw: data
+        });
+      }
+      return json(res, 200, { ok: true, results });
+    } catch (err) {
+      log("hml-merchant-status-error", err.message);
+      return json(res, 502, { ok: false, message: err.message });
+    }
+  }
+
   if (req.method === "GET" && url.pathname === "/api/admin/ifood-hml/status") {
     const admin = requireAdmin(req, res);
     if (!admin) return;

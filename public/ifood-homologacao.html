@@ -46,6 +46,8 @@ small{color:#666}
  <div class="status warn"><b>Importante:</b> para o aplicativo Distribuído Teste (D), inicie a homologação escolhendo <b>POLLING</b>. Webhook é destinado a aplicativos centralizados.</div>
  <p>Quando aparecer <b>Autorizado</b> abaixo, aguarde cerca de 30 segundos e volte ao iFood Developer → Homologação → Testar conexão.</p>
  <div id="authStatus" class="status">Verificando...</div>
+ <button id="testConnection" class="primary" type="button">Testar status da loja</button>
+ <div id="connectionStatus" class="status" style="display:none"></div>
 </div>
 </main>
 <script>
@@ -67,6 +69,28 @@ generate.onclick=async()=>{
  showMsg("Código gerado. Agora autorize no Portal do Parceiro.","ok");
 }
 open.onclick=()=>window.open(verificationUrl||"https://portal.ifood.com.br/apps/code","_blank");
+testConnection.onclick=async()=>{
+ connectionStatus.style.display="block";
+ connectionStatus.className="status warn";
+ connectionStatus.textContent="Consultando status da loja no iFood...";
+ const r=await fetch("/api/admin/ifood-hml/merchant-status");
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok){
+   connectionStatus.className="status err";
+   connectionStatus.textContent="❌ "+(d.message||"Não foi possível consultar o status da loja.");
+   return;
+ }
+ const item=d.results?.[0];
+ if(!item){
+   connectionStatus.className="status err";
+   connectionStatus.textContent="❌ O iFood não retornou status para a loja.";
+   return;
+ }
+ const ok=String(item.connectedState).toUpperCase()==="OK";
+ connectionStatus.className="status "+(ok?"ok":"err");
+ const states=(item.states||[]).join(", ")||"NÃO INFORMADO";
+ connectionStatus.textContent=(ok?"✅":"❌")+` is-connected: ${item.connectedState} | Loja: ${states} | Disponível: ${item.available?"SIM":"NÃO"}`;
+}
 complete.onclick=async()=>{
  const authorizationCode=authCode.value.trim();
  if(!authorizationCode)return showMsg("Informe o código de autorização.","err");
