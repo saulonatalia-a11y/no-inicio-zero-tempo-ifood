@@ -1106,6 +1106,10 @@ function normalizeOrder(o) {
 
 
 function scheduleAutoConfirm(id) {
+  if (homologationModeEnabled()) {
+    log("hml-manual", `Homologação: aceite automático bloqueado para ${id}.`);
+    return;
+  }
   if (!settings.autoConfirm || autoConfirmDone.has(id)) return;
   if (confirmTimers.has(id)) clearTimeout(confirmTimers.get(id));
 
@@ -1139,6 +1143,10 @@ function scheduleAutoConfirm(id) {
 }
 
 function scheduleAutoReady(id) {
+  if (homologationModeEnabled()) {
+    log("hml-manual", `Homologação: marcar pronto automático bloqueado para ${id}.`);
+    return;
+  }
   if (!settings.autoReady || autoReadyDone.has(id)) return;
   if (readyTimers.has(id)) clearTimeout(readyTimers.get(id));
 
@@ -2036,6 +2044,7 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
       const normalized = reasons
         .map(r => ({
           code: String(
+            r?.cancelCodeId ??
             r?.code ??
             r?.id ??
             r?.cancellationCode ??
@@ -2108,6 +2117,7 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
 
       const valid = reasons.some(r =>
         String(
+          r?.cancelCodeId ??
           r?.code ??
           r?.id ??
           r?.cancellationCode ??
