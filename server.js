@@ -1834,6 +1834,53 @@ async function handleApi(req, res, url) {
     }
 
     try {
+      const checkBody = await readJson(req);
+      const manualMerchantId = String(checkBody.merchantId || "").trim();
+
+      // Fallback para aplicativos distribuídos em que GET /merchants pode
+      // temporariamente retornar [] mesmo com a permissão ativa no portal.
+      // O ID informado pelo lojista só é aceito se o próprio token autorizado
+      // conseguir consultar GET /merchants/{merchantId}.
+      if (manualMerchantId) {
+        const direct = await ifoodUserRequest(
+          user,
+          `/merchant/v1.0/merchants/${encodeURIComponent(manualMerchantId)}`
+        );
+        const merchant = direct.data || {};
+        const returnedId = String(merchant?.id || manualMerchantId).trim();
+        if (returnedId !== manualMerchantId) {
+          return json(res, 409, {
+            ok: false,
+            error: "merchant_id_mismatch",
+            message: "O iFood respondeu com uma loja diferente do ID informado."
+          });
+        }
+
+        user.ifoodConnected = true;
+        user.ifoodLinkStatus = "connected";
+        user.ifoodMerchantId = manualMerchantId;
+        user.ifoodMerchantName = String(merchant?.name || merchant?.corporateName || user.storeName || "Loja iFood");
+        user.ifoodConnectedAt = new Date().toISOString();
+        user.updatedAt = new Date().toISOString();
+        saveAuthData();
+        try { await saveIfoodIntegration(user); }
+        catch (e) { log("supabase", `Falha ao persistir merchant validado: ${e.message}`); }
+
+        log("ifood-auth", `Merchant validado diretamente: HTTP ${direct.status} | id=${manualMerchantId}`);
+        return json(res, 200, {
+          ok: true,
+          connected: true,
+          integration: ifoodCustomerConnection(user),
+          diagnostic: {
+            token: "OK",
+            endpoint: `/merchant/v1.0/merchants/${manualMerchantId}`,
+            httpStatus: direct.status,
+            selectedMerchantId: manualMerchantId,
+            selectedMerchantName: user.ifoodMerchantName
+          }
+        });
+      }
+
       const merchantResult = await inspectUserIfoodMerchants(user);
       const merchants = merchantResult.merchants;
       log("ifood-auth", `Verificação merchant: HTTP ${merchantResult.diagnostic.httpStatus} | lojas=${merchants.length} | formato=${merchantResult.diagnostic.responseShape}`);
@@ -1842,6 +1889,7 @@ async function handleApi(req, res, url) {
           ok: true,
           connected: false,
           waiting: true,
+          manualMerchantIdAllowed: true,
           diagnostic: merchantResult.diagnostic,
           message: `Token OK | GET /merchant/v1.0/merchants: HTTP ${merchantResult.diagnostic.httpStatus} | Lojas encontradas: 0`
         });

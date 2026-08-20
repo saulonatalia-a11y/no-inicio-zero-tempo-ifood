@@ -37,6 +37,13 @@ input{width:100%;padding:13px;border:1px solid #cfd4dc;border-radius:9px;font-si
   <button id="completeBtn" class="btn primary">Concluir conexão</button>
  </div>
 
+ <div id="manualMerchantBox" class="step hidden">
+  <h3>Loja autorizada, mas não listada automaticamente</h3>
+  <p class="muted">Informe o ID da loja mostrado em iFood Developer → TurboFlow → Permissões. O TurboFlow vai validar esse ID com o token autorizado antes de conectar.</p>
+  <input id="manualMerchantId" placeholder="ID da loja (UUID)">
+  <button id="validateMerchantBtn" class="btn primary">Validar e conectar loja</button>
+ </div>
+
  <div id="connectedBox" class="step hidden">
   <div class="msg good"><b>iFood conectado.</b><br>Loja: <span id="merchantName">—</span><br>ID: <span id="merchantId">—</span></div>
   <button id="disconnectBtn" class="btn danger" style="margin-top:12px">Desconectar loja</button>
@@ -76,7 +83,7 @@ async function boot(){
  // Reconsulta o merchant automaticamente até o iFood liberar a loja.
  if(state==="authorized_waiting_merchant"){
   status.className="status waiting";status.textContent="● Autorizado — aguardando loja";
-  startBox.classList.add("hidden");codeBox.classList.add("hidden");connectedBox.classList.add("hidden");
+  startBox.classList.add("hidden");codeBox.classList.add("hidden");connectedBox.classList.add("hidden");manualMerchantBox.classList.add("hidden");
   showMsg("Autorização recebida. Aguardando a loja aparecer na API do iFood.");
   beginMerchantCheck();
   return;
@@ -104,6 +111,7 @@ async function checkMerchant(){
    const x=d.diagnostic||{};
    const detail=d.message||`Token: ${x.token||"OK"} | Consulta merchants: ${x.httpStatus||"?"} | Lojas encontradas: ${x.merchantCount??0}`;
    showMsg(detail,false);
+   if(d.manualMerchantIdAllowed) manualMerchantBox.classList.remove("hidden");
   }
  }catch(e){
   // 409 aqui só significa que ainda não há autorização pendente restaurável.
@@ -113,7 +121,7 @@ async function checkMerchant(){
 function beginMerchantCheck(){
  if(merchantCheckTimer)return;
  checkMerchant();
- merchantCheckTimer=setInterval(checkMerchant,10000);
+ merchantCheckTimer=setInterval(checkMerchant,30000);
 }
 
 async function start(){
@@ -140,6 +148,20 @@ completeBtn.onclick=async()=>{
   }
   showMsg("Loja conectada com sucesso.");setTimeout(()=>location.reload(),700);
  }catch(e){showMsg(e.message,true)}finally{completeBtn.disabled=false;completeBtn.textContent="Concluir conexão"}
+};
+
+validateMerchantBtn.onclick=async()=>{
+ const merchantId=manualMerchantId.value.trim();
+ if(!merchantId)return showMsg("Informe o ID da loja mostrado no iFood Developer.",true);
+ try{
+  validateMerchantBtn.disabled=true;validateMerchantBtn.textContent="Validando...";
+  const d=await api("/api/integrations/ifood/code/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({merchantId})});
+  if(d.connected){
+   if(merchantCheckTimer)clearInterval(merchantCheckTimer);
+   showMsg("Loja validada e conectada com sucesso.");
+   setTimeout(()=>location.reload(),600);
+  }
+ }catch(e){showMsg(e.message,true)}finally{validateMerchantBtn.disabled=false;validateMerchantBtn.textContent="Validar e conectar loja"}
 };
 disconnectBtn.onclick=async()=>{if(!confirm("Desconectar esta loja do iFood?"))return;await api("/api/integrations/ifood/disconnect",{method:"POST"});location.reload()};
 async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}
