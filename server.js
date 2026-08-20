@@ -326,6 +326,110 @@ function ensureAdminAccount() {
 ensureAdminAccount();
 
 
+
+const SUPABASE_URL = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+function supabaseConfigured() {
+  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function supabaseRest(pathname, options = {}) {
+  if (!supabaseConfigured()) throw new Error("Supabase não configurado.");
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${pathname}`, {
+    method: options.method || "GET",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: options.prefer || "return=representation",
+      ...(options.headers || {})
+    },
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined
+  });
+
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+
+  if (!response.ok) {
+    throw new Error(`Supabase HTTP ${response.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
+  }
+  return data;
+}
+
+async function saveIfoodIntegration(user) {
+  if (!supabaseConfigured() || !user?.id) return false;
+
+  const payload = {
+    owner_user_id: String(user.id),
+    owner_email: user.email || null,
+    merchant_id: user.ifoodMerchantId || null,
+    merchant_name: user.ifoodMerchantName || null,
+    access_token: user.ifoodAccessToken || null,
+    refresh_token: user.ifoodRefreshToken || null,
+    token_expires_at: user.ifoodTokenExpiresAt || null,
+    connected: Boolean(user.ifoodConnected),
+    connected_at: user.ifoodConnectedAt || null,
+    last_refresh_at: new Date().toISOString()
+  };
+
+  await supabaseRest("ifood_integrations?on_conflict=owner_user_id", {
+    method: "POST",
+    prefer: "resolution=merge-duplicates,return=minimal",
+    body: payload
+  });
+  return true;
+}
+
+async function restoreIfoodIntegration(user) {
+  if (!supabaseConfigured() || !user?.id) return null;
+
+  const rows = await supabaseRest(
+    `ifood_integrations?owner_user_id=eq.${encodeURIComponent(String(user.id))}&limit=1`,
+    { method: "GET" }
+  );
+
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row) return null;
+
+  user.ifoodMerchantId = row.merchant_id || "";
+  user.ifoodMerchantName = row.merchant_name || "";
+  user.ifoodAccessToken = row.access_token || "";
+  user.ifoodRefreshToken = row.refresh_token || "";
+  user.ifoodTokenExpiresAt = row.token_expires_at || null;
+  user.ifoodConnectedAt = row.connected_at || null;
+  user.ifoodConnected = Boolean(
+    row.connected &&
+    row.merchant_id &&
+    (row.access_token || row.refresh_token)
+  );
+  user.ifoodLinkStatus = user.ifoodConnected ? "connected" : (user.ifoodLinkStatus || "none");
+  return row;
+}
+
+async function clearIfoodIntegrationFromSupabase(user) {
+  if (!supabaseConfigured() || !user?.id) return;
+
+  await supabaseRest(
+    `ifood_integrations?owner_user_id=eq.${encodeURIComponent(String(user.id))}`,
+    {
+      method: "PATCH",
+      prefer: "return=minimal",
+      body: {
+        merchant_id: null,
+        merchant_name: null,
+        access_token: null,
+        refresh_token: null,
+        token_expires_at: null,
+        connected: false,
+        connected_at: null,
+        last_refresh_at: new Date().toISOString()
+      }
+    }
+  );
+}
+
 function ifoodCustomerConnection(user) {
   return {
     connected: Boolean(user && user.ifoodConnected && user.ifoodMerchantId),
@@ -446,6 +550,8 @@ async function refreshDistributedIfoodToken(user) {
   user.ifoodTokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
   user.updatedAt = new Date().toISOString();
   saveAuthData();
+  try { await saveIfoodIntegration(user); }
+  catch (e) { log("supabase", `Falha ao persistir refresh iFood: ${e.message}`); }
   return user.ifoodAccessToken;
 }
 
@@ -1431,6 +1537,8 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/integrations/ifood") {
     const user = requireActiveCustomer(req, res);
     if (!user) return;
+    try { await restoreIfoodIntegration(user); }
+    catch (e) { log("supabase", `Falha ao restaurar integração iFood: ${e.message}`); }
     const cid = productionIfoodClientId();
     return json(res, 200, {
       ok: true,
@@ -1617,6 +1725,8 @@ async function handleApi(req, res, url) {
         user.ifoodConnected = false;
         user.updatedAt = new Date().toISOString();
         saveAuthData();
+        try { await saveIfoodIntegration(user); }
+        catch (e) { log("supabase", `Falha ao salvar autorização pendente: ${e.message}`); }
 
         return json(res, 202, {
           ok: true,
@@ -1659,6 +1769,8 @@ async function handleApi(req, res, url) {
       user.ifoodCodeExpiresAt = null;
       user.updatedAt = new Date().toISOString();
       saveAuthData();
+      try { await saveIfoodIntegration(user); }
+      catch (e) { log("supabase", `Falha ao persistir loja conectada: ${e.message}`); }
 
       return json(res, 200, {
         ok: true,
@@ -1679,6 +1791,9 @@ async function handleApi(req, res, url) {
     const user = requireActiveCustomer(req, res);
     if (!user) return;
 
+    try { await restoreIfoodIntegration(user); }
+    catch (e) { log("supabase", `Falha ao restaurar autorização pendente: ${e.message}`); }
+
     if (!user.ifoodAccessToken) {
       return json(res, 409, { ok: false, error: "authorization_not_completed" });
     }
@@ -1697,6 +1812,8 @@ async function handleApi(req, res, url) {
       user.ifoodConnectedAt = new Date().toISOString();
       user.updatedAt = new Date().toISOString();
       saveAuthData();
+      try { await saveIfoodIntegration(user); }
+      catch (e) { log("supabase", `Falha ao persistir merchant encontrado: ${e.message}`); }
 
       return json(res, 200, {
         ok: true,
@@ -1747,6 +1864,8 @@ async function handleApi(req, res, url) {
     const user = requireActiveCustomer(req, res);
     if (!user) return;
     clearIfoodCustomerConnection(user);
+    try { await clearIfoodIntegrationFromSupabase(user); }
+    catch (e) { log("supabase", `Falha ao limpar integração iFood: ${e.message}`); }
     return json(res, 200, { ok: true, integration: ifoodCustomerConnection(user) });
   }
 
@@ -1767,6 +1886,8 @@ async function handleApi(req, res, url) {
     user.ifoodConnectedAt = new Date().toISOString();
     user.updatedAt = new Date().toISOString();
     saveAuthData();
+    try { await saveIfoodIntegration(user); }
+    catch (e) { log("supabase", `Falha ao persistir integração manual: ${e.message}`); }
     return json(res, 200, { ok: true, integration: ifoodCustomerConnection(user) });
   }
 
@@ -1989,6 +2110,10 @@ async function handleApi(req, res, url) {
   // Em produção, cada cliente continua usando a própria conexão iFood.
   if (req.method === "GET" && url.pathname === "/api/orders/context") {
     const activeUser = requireActiveCustomer(req, res); if (!activeUser) return;
+    if (activeUser && activeUser.role !== "admin") {
+      try { await restoreIfoodIntegration(activeUser); }
+      catch (e) { log("supabase", `Falha ao restaurar integração no KDS: ${e.message}`); }
+    }
 
     const hmlMode = homologationModeEnabled();
     const hmlAuthorized = Boolean(

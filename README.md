@@ -459,3 +459,18 @@ A interface mostra rótulos amigáveis como "PEDIDO DESPACHADO", "CONCLUÍDO" e 
 - `/oauth/userCode` usa somente `clientId`, conforme documentação oficial do iFood.
 - Adiciona diagnóstico seguro do Client ID (comprimento e formato UUID), sem expor credenciais.
 - Mantém o KDS e toda a lógica de pedidos da v6.1.
+
+## v6.3 — Persistência da conexão iFood no Supabase
+
+Configure no Render:
+- `SUPABASE_URL=https://fqwoshdohwcbdgbdvmqc.supabase.co`
+- `SUPABASE_SERVICE_ROLE_KEY=<Service Role Key do mesmo projeto Supabase>`
+
+A integração agora salva e restaura:
+- Merchant ID e nome da loja
+- Access Token
+- Refresh Token
+- Expiração do token
+- Estado conectado
+
+A Service Role Key é usada somente pelo backend e nunca deve ser colocada no frontend.
