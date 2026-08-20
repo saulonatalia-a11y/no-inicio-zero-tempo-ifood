@@ -1842,9 +1842,10 @@ async function handleApi(req, res, url) {
       return json(res, 409, { ok: false, error: "authorization_not_completed" });
     }
 
+    let manualMerchantId = "";
     try {
       const checkBody = await readJson(req);
-      const manualMerchantId = String(checkBody.merchantId || "").trim();
+      manualMerchantId = String(checkBody.merchantId || "").trim();
 
       // Fallback para aplicativos distribuídos em que GET /merchants pode
       // temporariamente retornar [] mesmo com a permissão ativa no portal.
