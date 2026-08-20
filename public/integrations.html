@@ -52,20 +52,67 @@ function showMsg(t,err=false){msg.textContent=t;msg.className="msg "+(err?"bad":
 async function boot(){
  const me=await api("/api/auth/me");if(!me.user)return location.href="/login.html";
  const d=await api("/api/integrations/ifood");integration=d.integration||{};
+ const state=String(integration.linkStatus||"");
+
  if(integration.connected){
   status.className="status ok";status.textContent="● Conectado";
   startBox.classList.add("hidden");codeBox.classList.add("hidden");connectedBox.classList.remove("hidden");
   merchantName.textContent=integration.merchantName||"Loja iFood";merchantId.textContent=integration.merchantId||"—";
- }else{
-  const c=d.credentialDiagnostic||{};
-  status.className="status off";
-  status.textContent=d.appConfigured?"● Pronto para conectar":"● Credenciais de produção incompletas";
-  if(c.clientIdConfigured){
-    const extra=`Client ID: ${c.clientIdLength} caracteres | formato UUID: ${c.clientIdUuidFormat?"OK":"INVÁLIDO"}`;
-    showMsg(extra,!c.clientIdUuidFormat);
-  }
+  return;
+ }
+
+ // F5 não pode apagar o andamento do vínculo.
+ // Se o servidor ainda tem o userCode, restaura a etapa 2/3 na tela.
+ if(state==="code_generated" && integration.userCode){
+  status.className="status waiting";status.textContent="● Aguardando autorização no iFood";
+  userCode.textContent=integration.userCode;
+  verificationUrl=integration.verificationUrl||"https://portal.ifood.com.br/apps/code";
+  startBox.classList.add("hidden");codeBox.classList.remove("hidden");connectedBox.classList.add("hidden");
+  showMsg("Código já gerado. Continue a autorização; não é necessário gerar outro código.");
+  return;
+ }
+
+ // Se o código de autorização já foi trocado por tokens, não volta ao passo 1.
+ // Reconsulta o merchant automaticamente até o iFood liberar a loja.
+ if(state==="authorized_waiting_merchant"){
+  status.className="status waiting";status.textContent="● Autorizado — aguardando loja";
+  startBox.classList.add("hidden");codeBox.classList.add("hidden");connectedBox.classList.add("hidden");
+  showMsg("Autorização recebida. Aguardando a loja aparecer na API do iFood.");
+  beginMerchantCheck();
+  return;
+ }
+
+ const c=d.credentialDiagnostic||{};
+ status.className="status off";
+ status.textContent=d.appConfigured?"● Pronto para conectar":"● Credenciais de produção incompletas";
+ if(c.clientIdConfigured){
+   const extra=`Client ID: ${c.clientIdLength} caracteres | formato UUID: ${c.clientIdUuidFormat?"OK":"INVÁLIDO"}`;
+   showMsg(extra,!c.clientIdUuidFormat);
  }
 }
+
+let merchantCheckTimer=null;
+async function checkMerchant(){
+ try{
+  const d=await api("/api/integrations/ifood/code/check",{method:"POST"});
+  if(d.connected){
+   if(merchantCheckTimer)clearInterval(merchantCheckTimer);
+   showMsg("Loja conectada com sucesso.");
+   setTimeout(()=>location.reload(),500);
+  }else if(d.waiting){
+   status.className="status waiting";status.textContent="● Autorizado — aguardando loja";
+  }
+ }catch(e){
+  // 409 aqui só significa que ainda não há autorização pendente restaurável.
+  if(!/authorization_not_completed/i.test(String(e.message||""))) showMsg(e.message,true);
+ }
+}
+function beginMerchantCheck(){
+ if(merchantCheckTimer)return;
+ checkMerchant();
+ merchantCheckTimer=setInterval(checkMerchant,10000);
+}
+
 async function start(){
  try{
   startBtn.disabled=true;startBtn.textContent="Gerando...";
@@ -81,7 +128,13 @@ completeBtn.onclick=async()=>{
  try{
   completeBtn.disabled=true;completeBtn.textContent="Conectando...";
   const d=await api("/api/integrations/ifood/code/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({authorizationCode:code})});
-  if(d.waiting){showMsg(d.message||"Autorizado. Aguardando loja aparecer na API.");return}
+  if(d.waiting){
+   status.className="status waiting";status.textContent="● Autorizado — aguardando loja";
+   codeBox.classList.add("hidden");
+   showMsg(d.message||"Autorizado. Aguardando loja aparecer na API.");
+   beginMerchantCheck();
+   return
+  }
   showMsg("Loja conectada com sucesso.");setTimeout(()=>location.reload(),700);
  }catch(e){showMsg(e.message,true)}finally{completeBtn.disabled=false;completeBtn.textContent="Concluir conexão"}
 };

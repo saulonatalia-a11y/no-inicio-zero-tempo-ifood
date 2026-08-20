@@ -404,7 +404,17 @@ async function restoreIfoodIntegration(user) {
     row.merchant_id &&
     (row.access_token || row.refresh_token)
   );
-  user.ifoodLinkStatus = user.ifoodConnected ? "connected" : (user.ifoodLinkStatus || "none");
+
+  // Se já existe token salvo no Supabase, a autorização do iFood foi concluída.
+  // Mesmo que o merchant ainda não tenha aparecido, após F5/restart devemos
+  // continuar na etapa de espera em vez de voltar para "Gerar código".
+  if (user.ifoodConnected) {
+    user.ifoodLinkStatus = "connected";
+  } else if (row.access_token || row.refresh_token) {
+    user.ifoodLinkStatus = "authorized_waiting_merchant";
+  } else {
+    user.ifoodLinkStatus = user.ifoodLinkStatus || "none";
+  }
   return row;
 }
 
@@ -2622,4 +2632,3 @@ server.listen(PORT, () => {
 // Polling exclusivo da homologação distribuída.
 setInterval(pollHmlEvents, 30000);
 setTimeout(pollHmlEvents, 5000);
-
