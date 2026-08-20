@@ -2,7 +2,7 @@
   "autoConfirm": true,
   "autoStartPreparation": true,
   "autoReady": true,
-  "acceptDelaySeconds": 5,
+  "acceptDelaySeconds": 0,
   "readyDelaySeconds": 10,
   "printSettings": {
     "paperWidth": "80",

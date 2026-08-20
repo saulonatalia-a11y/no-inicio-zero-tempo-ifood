@@ -60,7 +60,7 @@ function loadSettings() {
     autoConfirm: true,
     autoStartPreparation: true,
     autoReady: true,
-    acceptDelaySeconds: 5,
+    acceptDelaySeconds: 0,
     readyDelaySeconds: 10,
     printSettings: {
       paperWidth: "80",
@@ -477,6 +477,25 @@ async function listUserIfoodMerchants(user) {
   if (Array.isArray(data?.merchants)) return data.merchants;
   if (Array.isArray(data?.data)) return data.data;
   return [];
+}
+
+
+async function ifoodRequestForUser(user, endpoint, options = {}) {
+  if (homologationModeEnabled()) {
+    return hmlIfoodRequest(endpoint, options);
+  }
+  if (!user || !user.ifoodConnected || !user.ifoodMerchantId) {
+    throw new Error("Loja iFood não conectada ao TurboFlow.");
+  }
+  return ifoodUserRequest(user, endpoint, options);
+}
+
+function findUserById(userId) {
+  return authData.users.find(u => u.id === userId) || null;
+}
+
+function ownerForOrder(order) {
+  return order?.ownerUserId ? findUserById(order.ownerUserId) : null;
 }
 
 
@@ -930,53 +949,62 @@ async function handle99FoodWebhook(req, res) {
 }
 
 async function pollEvents() {
-  // iFood em homologação: somente o polling Distribuído/HML pode rodar.
   if (homologationModeEnabled()) return;
-
-  // Modo homologação: bloqueia totalmente o Teste (C) desde o boot.
-  if (homologationModeEnabled()) return;
-
-  // Durante a homologação do aplicativo Distribuído, NÃO execute o polling
-  // com as credenciais legadas (IFOOD_CLIENT_ID/SECRET). O Wizard do iFood
-  // identifica o cliente OAuth que fez o polling e rejeita a conectividade
-  // se receber heartbeat do cliente antigo (ex.: merchant:<uuid>).
-  // O polling da homologação é feito exclusivamente por pollHmlEvents().
-  if (hmlAuth.accessToken || hmlAuth.refreshToken) return;
   if (isPolling) return;
   isPolling = true;
+
   try {
-    const { data } = await ifoodRequest("/events/v1.0/events:polling", { headers: pollingMerchantHeaderValue() ? { "x-polling-merchants": pollingMerchantHeaderValue() } : {} });
-    const events = Array.isArray(data) ? data : (data?.events || []);
-    if (!events.length) return;
+    const connectedUsers = authData.users.filter(
+      u => u.role !== "admin" &&
+           u.ifoodConnected &&
+           u.ifoodMerchantId &&
+           (u.ifoodAccessToken || u.ifoodRefreshToken)
+    );
 
-    events.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    if (!connectedUsers.length) return;
 
-    const processedIds = [];
-    for (const event of events) {
+    for (const user of connectedUsers) {
       try {
-        await processEvent(event);
-        if (event.id) processedIds.push(event.id);
+        const merchantId = String(user.ifoodMerchantId || "").trim();
+        const { data } = await ifoodUserRequest(
+          user,
+          "/events/v1.0/events:polling",
+          { headers: merchantId ? { "x-polling-merchants": merchantId } : {} }
+        );
+
+        const events = Array.isArray(data) ? data : (data?.events || []);
+        if (!events.length) continue;
+
+        events.sort((a,b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+        const processedIds = [];
+        for (const event of events) {
+          try {
+            await processEvent(event, user);
+            if (event.id) processedIds.push(event.id);
+          } catch (err) {
+            log("error", `Erro processando evento ${event.id || "sem-id"} da loja ${merchantId}: ${err.message}`, event);
+          }
+        }
+
+        if (processedIds.length) {
+          const acknowledgmentBody = processedIds.map(id => ({ id }));
+          await ifoodUserRequest(user, "/events/v1.0/events/acknowledgment", {
+            method: "POST",
+            body: JSON.stringify(acknowledgmentBody)
+          });
+          log("ack", `${processedIds.length} evento(s) confirmado(s) — merchant ${merchantId}.`);
+        }
       } catch (err) {
-        log("error", `Erro processando evento ${event.id || "sem-id"}: ${err.message}`, event);
+        log("error", `Polling distribuído falhou para ${user.ifoodMerchantId || user.id}: ${err.message}`);
       }
     }
-
-    if (processedIds.length) {
-      const acknowledgmentBody = processedIds.map(id => ({ id }));
-      await ifoodRequest("/events/v1.0/events/acknowledgment", {
-        method: "POST",
-        body: JSON.stringify(acknowledgmentBody)
-      });
-      log("ack", `${processedIds.length} evento(s) confirmado(s) ao iFood.`);
-    }
-  } catch (err) {
-    log("error", err.message);
   } finally {
     isPolling = false;
   }
 }
 
-async function processEvent(event) {
+async function processEvent(event, activeUser = null) {
   const code = String(event.code || event.fullCode || "").toUpperCase();
   const orderId = event.orderId || event.order?.id;
   log("event", `${code || "EVENTO"} ${orderId || ""}`.trim(), event);
@@ -985,22 +1013,26 @@ async function processEvent(event) {
 
   // Novo pedido: busca detalhes imediatamente e agenda o aceite.
   if (["PLACED", "PLC"].includes(code) || code.includes("PLACED")) {
-    const detail = await getOrderDetail(orderId);
+    const detail = await getOrderDetail(orderId, activeUser);
     const normalized = normalizeOrder(detail);
     normalized.status = "PLACED";
     normalized.stage = "NEW";
     normalized.receivedAt = normalized.receivedAt || new Date().toISOString();
+    if (activeUser?.id) normalized.ownerUserId = activeUser.id;
+    if (activeUser?.ifoodMerchantId && !normalized.merchant) {
+      normalized.merchant = { id: activeUser.ifoodMerchantId, name: activeUser.ifoodMerchantName || "" };
+    }
     orders.set(orderId, normalized);
 
     if (settings.autoConfirm && !autoConfirmDone.has(orderId) && !confirmTimers.has(orderId)) {
-      scheduleAutoConfirm(orderId);
+      scheduleAutoConfirm(orderId, activeUser);
     }
     return;
   }
 
   // Confirmado: entra em preparo e agenda "pronto para retirada".
   if (["CONFIRMED", "CFM"].includes(code) || code.includes("CONFIRMED")) {
-    const current = orders.get(orderId) || { id: orderId };
+    const current = orders.get(orderId) || { id: orderId, ownerUserId: activeUser?.id, merchant: activeUser?.ifoodMerchantId ? { id: activeUser.ifoodMerchantId, name: activeUser.ifoodMerchantName || "" } : undefined };
     current.status = "CONFIRMED";
     current.stage = "PREPARATION";
     current.preparationStartedAt = current.preparationStartedAt || new Date().toISOString();
@@ -1010,33 +1042,33 @@ async function processEvent(event) {
 
     if (settings.autoStartPreparation && !autoStartDone.has(orderId)) {
       autoStartDone.add(orderId);
-      await actionStartPreparation(orderId);
+      await actionStartPreparation(orderId, activeUser);
       log("auto", `Início de preparo automático executado para ${orderId}.`);
     }
 
     if (settings.autoReady && !autoReadyDone.has(orderId) && !readyTimers.has(orderId)) {
-      scheduleAutoReady(orderId);
+      scheduleAutoReady(orderId, activeUser);
     }
     return;
   }
 
   // Preparando. Mantém/agendas o timer de pronto se ainda necessário.
   if (["PRS", "DDCR"].includes(code) || code.includes("PREPAR")) {
-    const current = orders.get(orderId) || { id: orderId };
+    const current = orders.get(orderId) || { id: orderId, ownerUserId: activeUser?.id, merchant: activeUser?.ifoodMerchantId ? { id: activeUser.ifoodMerchantId, name: activeUser.ifoodMerchantName || "" } : undefined };
     current.status = "PREPARATION";
     current.stage = "PREPARATION";
     current.updatedAt = new Date().toISOString();
     orders.set(orderId, current);
 
     if (settings.autoReady && !autoReadyDone.has(orderId) && !readyTimers.has(orderId)) {
-      scheduleAutoReady(orderId);
+      scheduleAutoReady(orderId, activeUser);
     }
     return;
   }
 
   // Ready to pickup: pedido pronto, esperando entregador.
   if (["RTP", "READY_TO_PICKUP", "READYTOPICKUP"].includes(code) || code.includes("READY_TO_PICKUP")) {
-    const current = orders.get(orderId) || { id: orderId };
+    const current = orders.get(orderId) || { id: orderId, ownerUserId: activeUser?.id, merchant: activeUser?.ifoodMerchantId ? { id: activeUser.ifoodMerchantId, name: activeUser.ifoodMerchantName || "" } : undefined };
     current.status = "READY_TO_PICKUP";
     current.stage = "READY";
     current.readyAt = current.readyAt || new Date().toISOString();
@@ -1049,7 +1081,7 @@ async function processEvent(event) {
 
   // DISPATCHED: o entregador já saiu com o pedido.
   if (["DSP", "DISPATCHED"].includes(code) || code.includes("DISPATCH")) {
-    const current = orders.get(orderId) || { id: orderId };
+    const current = orders.get(orderId) || { id: orderId, ownerUserId: activeUser?.id, merchant: activeUser?.ifoodMerchantId ? { id: activeUser.ifoodMerchantId, name: activeUser.ifoodMerchantName || "" } : undefined };
     current.status = "DISPATCHED";
     current.stage = "DELIVERY";
     current.dispatchedAt = current.dispatchedAt || new Date().toISOString();
@@ -1058,7 +1090,7 @@ async function processEvent(event) {
     return;
   }
 
-  const current = orders.get(orderId) || { id: orderId };
+  const current = orders.get(orderId) || { id: orderId, ownerUserId: activeUser?.id, merchant: activeUser?.ifoodMerchantId ? { id: activeUser.ifoodMerchantId, name: activeUser.ifoodMerchantName || "" } : undefined };
 
   if (["DSP", "DISPATCHED"].includes(code) || code.includes("DISPATCHED")) {
     current.status = "DISPATCHED";
@@ -1091,8 +1123,8 @@ async function processEvent(event) {
   orders.set(orderId, current);
 }
 
-async function getOrderDetail(id) {
-  const { data } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}`);
+async function getOrderDetail(id, activeUser = null) {
+  const { data } = await ifoodRequestForUser(activeUser, `/order/v1.0/orders/${encodeURIComponent(id)}`);
   return data;
 }
 
@@ -1115,13 +1147,13 @@ function normalizeOrder(o) {
 }
 
 
-function scheduleAutoConfirm(id) {
+function scheduleAutoConfirm(id, activeUser = null) {
   // Na homologação, o aceite automático continua funcionando.
   // Isso preserva o comportamento já validado na Etapa 2.
   if (!settings.autoConfirm || autoConfirmDone.has(id)) return;
   if (confirmTimers.has(id)) clearTimeout(confirmTimers.get(id));
 
-  const delayMs = Math.max(0, Number(settings.acceptDelaySeconds || 5)) * 1000;
+  const delayMs = 0; // v6.0: aceite automático imediato assim que o evento chegar pelo polling
   const dueAt = Date.now() + delayMs;
 
   const current = orders.get(id) || { id };
@@ -1137,7 +1169,7 @@ function scheduleAutoConfirm(id) {
       const now = orders.get(id);
       if (now?.isClosed || autoConfirmDone.has(id)) return;
 
-      await actionConfirm(id);
+      await actionConfirm(id, activeUser || ownerForOrder(orders.get(id)));
       autoConfirmDone.add(id);
       log("auto", `Aceite automático executado para ${id}.`);
     } catch (err) {
@@ -1150,7 +1182,7 @@ function scheduleAutoConfirm(id) {
   confirmTimers.set(id, timer);
 }
 
-function scheduleAutoReady(id) {
+function scheduleAutoReady(id, activeUser = null) {
   if (homologationModeEnabled()) {
     log("hml-manual", `Homologação: marcar pronto automático bloqueado para ${id}.`);
     return;
@@ -1174,7 +1206,7 @@ function scheduleAutoReady(id) {
       const now = orders.get(id);
       if (now?.isClosed || autoReadyDone.has(id)) return;
 
-      await actionReadyToPickup(id);
+      await actionReadyToPickup(id, activeUser || ownerForOrder(orders.get(id)));
       autoReadyDone.add(id);
 
       const updated = orders.get(id) || { id };
@@ -1196,8 +1228,8 @@ function scheduleAutoReady(id) {
   readyTimers.set(id, timer);
 }
 
-async function actionConfirm(id) {
-  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/confirm`, { method: "POST" });
+async function actionConfirm(id, activeUser = null) {
+  await ifoodRequestForUser(activeUser || ownerForOrder(orders.get(id)), `/order/v1.0/orders/${encodeURIComponent(id)}/confirm`, { method: "POST" });
   const current = orders.get(id) || { id };
   current.status = "CONFIRM_REQUESTED";
   current.updatedAt = new Date().toISOString();
@@ -1206,8 +1238,8 @@ async function actionConfirm(id) {
   return current;
 }
 
-async function actionStartPreparation(id) {
-  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/startPreparation`, { method: "POST" });
+async function actionStartPreparation(id, activeUser = null) {
+  await ifoodRequestForUser(activeUser || ownerForOrder(orders.get(id)), `/order/v1.0/orders/${encodeURIComponent(id)}/startPreparation`, { method: "POST" });
   const current = orders.get(id) || { id };
   current.status = "PREPARATION_REQUESTED";
   current.updatedAt = new Date().toISOString();
@@ -1216,8 +1248,8 @@ async function actionStartPreparation(id) {
   return current;
 }
 
-async function actionReadyToPickup(id) {
-  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/readyToPickup`, { method: "POST" });
+async function actionReadyToPickup(id, activeUser = null) {
+  await ifoodRequestForUser(activeUser || ownerForOrder(orders.get(id)), `/order/v1.0/orders/${encodeURIComponent(id)}/readyToPickup`, { method: "POST" });
   const current = orders.get(id) || { id };
   current.status = "READY_REQUESTED";
   current.stage = "READY";
@@ -1228,8 +1260,8 @@ async function actionReadyToPickup(id) {
   return current;
 }
 
-async function actionDispatch(id) {
-  await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/dispatch`, { method: "POST" });
+async function actionDispatch(id, activeUser = null) {
+  await ifoodRequestForUser(activeUser || ownerForOrder(orders.get(id)), `/order/v1.0/orders/${encodeURIComponent(id)}/dispatch`, { method: "POST" });
   const current = orders.get(id) || { id };
   current.status = "DISPATCH_REQUESTED";
   current.updatedAt = new Date().toISOString();
@@ -2035,7 +2067,7 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
     }
 
     try {
-      const { data, status } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
+      const { data, status } = await ifoodRequestForUser(activeUser, `/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
 
       // Diagnóstico v5.2:
       // Guarda o retorno bruto para podermos ver exatamente o formato que o iFood HML enviou.
@@ -2114,7 +2146,7 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
 
     try {
       // Confirma no iFood que o motivo ainda é válido para ESTE pedido.
-      const { data: reasonsData } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
+      const { data: reasonsData } = await ifoodRequestForUser(activeUser, `/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`);
 
       let reasons = [];
       if (Array.isArray(reasonsData)) reasons = reasonsData;
@@ -2141,7 +2173,7 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
         });
       }
 
-      const { data, status } = await ifoodRequest(`/order/v1.0/orders/${encodeURIComponent(id)}/requestCancellation`, {
+      const { data, status } = await ifoodRequestForUser(activeUser, `/order/v1.0/orders/${encodeURIComponent(id)}/requestCancellation`, {
         method: "POST",
         body: JSON.stringify({ cancellationCode: reason })
       });
@@ -2172,10 +2204,10 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
       return json(res, 403, { ok: false, error: "order_not_owned_by_store" });
     }
     let result;
-    if (action === "confirm") result = await actionConfirm(id);
-    if (action === "start") result = await actionStartPreparation(id);
-    if (action === "ready") result = await actionReadyToPickup(id);
-    if (action === "dispatch") result = await actionDispatch(id);
+    if (action === "confirm") result = await actionConfirm(id, activeUser || ownerForOrder(orders.get(id)));
+    if (action === "start") result = await actionStartPreparation(id, activeUser);
+    if (action === "ready") result = await actionReadyToPickup(id, activeUser || ownerForOrder(orders.get(id)));
+    if (action === "dispatch") result = await actionDispatch(id, activeUser);
     return json(res, 200, { ok: true, order: result });
   }
 

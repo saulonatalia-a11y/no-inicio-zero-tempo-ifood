@@ -2,71 +2,83 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TurboFlow — Pedidos da Loja</title>
+<title>TurboFlow KDS — Pedidos iFood</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
-header{background:#080808;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:20}
-.brand{font-size:24px;font-weight:950;color:#ffd400}.top-actions{display:flex;gap:8px;align-items:center}
-button,a.btn{border:1px solid #d1d5db;background:#fff;color:#171717;padding:10px 13px;border-radius:9px;font-weight:850;cursor:pointer;text-decoration:none}
-button.primary{background:#ffd400;border-color:#dab900}.danger{background:#fff1f2!important;color:#9f2438!important;border-color:#efb8c0!important}
-main{max-width:1280px;margin:24px auto;padding:0 18px}
-.hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:18px}.hero h1{margin:0 0 4px}.muted{color:#6b7280}
-.stats{display:flex;gap:8px;flex-wrap:wrap}.pill{background:#fff;border:1px solid #ddd;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:800}
-.hml-panel{background:#fff8d9;border:1px solid #ead17a;border-radius:14px;padding:14px;margin:0 0 16px}.hml-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.hml-row input{flex:1;min-width:220px;padding:11px;border:1px solid #d1d5db;border-radius:9px;font-size:14px}.board{display:grid;grid-template-columns:repeat(5,minmax(210px,1fr));gap:12px;align-items:start}
-.col{background:#e9eaed;border-radius:14px;padding:12px;min-height:260px}.col h2{font-size:14px;margin:0 0 10px;display:flex;justify-content:space-between}
-.order{background:#fff;border:1px solid #ddd;border-radius:13px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
-.order-top{display:flex;justify-content:space-between;gap:8px}.order h3{margin:0}.status{font-size:11px;font-weight:900;background:#f3f4f6;padding:5px 7px;border-radius:999px}
-.items{font-size:13px;color:#555;margin:10px 0;line-height:1.45}.total{font-size:18px;font-weight:950}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.actions button{padding:8px 9px;font-size:12px}
-.empty{text-align:center;color:#777;padding:28px 8px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.48);display:grid;place-items:center;padding:16px;z-index:99}.hidden{display:none}.box{background:#fff;border-radius:16px;padding:20px;max-width:520px;width:100%}.box h2{margin-top:0}.reason-list{display:grid;gap:8px;max-height:320px;overflow:auto;margin:12px 0}.reason{border:1px solid #ddd;border-radius:10px;padding:11px;cursor:pointer}.reason input{margin-right:8px}.msg{padding:10px;border-radius:9px;margin-top:10px;background:#f3f4f6}.debug{background:#111;color:#e5e7eb;padding:12px;border-radius:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;margin-top:10px}.ok{background:#e9f8ee;color:#176c3d}.err{background:#feecef;color:#992d40}
-@media(max-width:1250px){.board{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.board{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.board{grid-template-columns:1fr}.hero{flex-direction:column;align-items:stretch}}
+:root{--bg:#101113;--panel:#1a1c20;--panel2:#22252b;--line:#30343c;--text:#f7f7f7;--muted:#9aa0aa;--yellow:#ffd400;--red:#ff4d5e;--green:#22c55e;--blue:#4da3ff;--orange:#ff9d2e}
+body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+header{height:68px;background:#070707;border-bottom:1px solid #242424;padding:0 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30}
+.brand{font-size:25px;font-weight:950;color:var(--yellow);letter-spacing:.5px}
+.brand small{font-size:11px;color:#fff;background:#2b2b2b;padding:4px 7px;border-radius:6px;margin-left:8px;vertical-align:middle}
+.top-actions{display:flex;gap:8px;align-items:center}
+button,a.btn{border:1px solid #3b3f47;background:#202329;color:#fff;padding:10px 13px;border-radius:9px;font-weight:850;cursor:pointer;text-decoration:none}
+button.primary{background:var(--yellow);border-color:var(--yellow);color:#111}.danger{background:#2d1518!important;color:#ff98a1!important;border-color:#71323a!important}
+.kds-wrap{padding:14px}
+.kds-head{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.store-title h1{font-size:24px;margin:0}.store-title .sub{color:var(--muted);font-size:13px;margin-top:3px}
+.badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.badge{background:#181a1e;border:1px solid var(--line);padding:8px 11px;border-radius:999px;font-size:12px;font-weight:900}
+.badge.online{color:#7df0a1}.badge.warn{color:#ffd36d}
+.hml-panel{background:#332c10;border:1px solid #685a19;border-radius:12px;padding:12px;margin-bottom:12px}.hml-row{display:flex;gap:8px;margin-top:9px}.hml-row input{flex:1;background:#15171a;color:#fff;border:1px solid #484c55;border-radius:8px;padding:10px}
+.kds-board{display:grid;grid-template-columns:1.08fr 1.08fr 1.08fr 1.08fr .86fr;gap:10px;height:calc(100vh - 132px);min-height:560px}
+.lane{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.lane-head{padding:11px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-weight:950;font-size:13px;letter-spacing:.5px}
+.lane-head .count{background:#30343c;border-radius:999px;padding:3px 8px}
+.lane.accept .lane-head{border-top:3px solid var(--yellow)}.lane.prep .lane-head{border-top:3px solid var(--orange)}.lane.ready .lane-head{border-top:3px solid var(--green)}.lane.route .lane-head{border-top:3px solid var(--blue)}.lane.done .lane-head{border-top:3px solid #71717a}
+.lane-body{padding:8px;overflow:auto;flex:1}
+.ticket{background:var(--panel2);border:1px solid #343842;border-radius:10px;margin-bottom:8px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.18)}
+.ticket.urgent{border-color:#9b313a;box-shadow:0 0 0 1px rgba(255,77,94,.18)}
+.ticket-top{padding:10px 10px 8px;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #31343b}
+.ticket-id{font-size:24px;font-weight:950;line-height:1}.ticket-time{font-size:12px;font-weight:900;color:#d7dae0}.ticket-time.hot{color:#ff6b77}
+.ticket-status{font-size:10px;font-weight:950;padding:4px 6px;border-radius:999px;background:#333740;color:#d9dce1;white-space:nowrap}
+.ticket-body{padding:9px 10px}.item{display:flex;gap:7px;line-height:1.25;margin:5px 0;font-size:13px}.qty{font-size:14px;font-weight:950;color:var(--yellow);min-width:22px}.item-name{font-weight:800}
+.total-row{display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #3b3f47;margin-top:8px;padding-top:8px}.total{font-size:16px;font-weight:950}.channel{font-size:10px;color:var(--muted)}
+.actions{display:grid;grid-template-columns:1fr;gap:6px;padding:0 10px 10px}.actions.two{grid-template-columns:1fr 1fr}.actions button{width:100%;padding:9px 8px;font-size:12px}
+.empty{height:100%;display:grid;place-items:center;color:#646a74;font-weight:800;text-align:center;padding:20px}
+.msg{padding:9px;border-radius:8px;margin-top:8px;background:#252930}.ok{background:#153322;color:#7df0a1}.err{background:#3a191e;color:#ff9aa3}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;padding:16px;z-index:99}.hidden{display:none!important}.box{background:#1b1d21;border:1px solid #3b3f47;color:#fff;border-radius:14px;padding:18px;max-width:560px;width:100%}.box h2{margin-top:0}
+.reason-list{display:grid;gap:7px;max-height:360px;overflow:auto;margin:12px 0}.reason{border:1px solid #3b3f47;background:#23262c;border-radius:9px;padding:10px;cursor:pointer}.reason input{margin-right:8px}
+.debug{background:#090a0c;color:#d5d8dd;padding:10px;border-radius:8px;font:11px monospace;white-space:pre-wrap;max-height:220px;overflow:auto}
+@media(max-width:1200px){.kds-board{grid-template-columns:repeat(3,1fr);height:auto}.lane{min-height:520px}}
+@media(max-width:760px){.kds-board{grid-template-columns:1fr}.lane{min-height:420px}.kds-head{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
 <header>
- <div class="brand">TURBOFLOW</div>
+ <div class="brand">TURBOFLOW <small>KDS</small></div>
  <div class="top-actions"><a id="adminBack" class="btn hidden" href="/admin.html">Admin</a><a class="btn" href="/integrations.html">Integrações</a><button onclick="logout()">Sair</button></div>
 </header>
-<main>
- <div class="hero">
-  <div><div class="muted">OPERAÇÃO DA LOJA</div><h1>Pedidos iFood</h1><div id="storeLine" class="muted">Carregando loja...</div></div>
-  <div class="stats"><div class="pill">Atualização: 5s</div><div id="connection" class="pill">iFood: verificando</div></div>
+
+<div class="kds-wrap">
+ <div class="kds-head">
+  <div class="store-title"><h1 id="storeTitle">Pedidos iFood</h1><div id="storeLine" class="sub">Carregando loja...</div></div>
+  <div class="badges"><div class="badge">Tela: tempo real</div><div class="badge">Polling iFood: 30s</div><div id="connection" class="badge warn">iFood: verificando</div></div>
  </div>
+
  <section id="hmlPanel" class="hml-panel hidden">
    <b>Homologação iFood</b>
-   <div class="muted" style="margin-top:4px">Após um deploy, pedidos já confirmados podem não voltar no polling porque já receberam ACK. Cole aqui o ID exibido pelo iFood Developer para recarregar o pedido diretamente pela API de teste.</div>
-   <div class="hml-row">
-    <input id="hmlOrderId" placeholder="UUID do pedido (ex.: 8cf5...)">
-    <input id="hmlDisplayId" placeholder="Número do pedido (ex.: 1899)">
-    <button id="hmlImportBtn" class="primary">Carregar pedido de homologação</button>
-   </div>
+   <div class="hml-row"><input id="hmlOrderId" placeholder="UUID do pedido"><input id="hmlDisplayId" placeholder="Número do pedido"><button id="hmlImportBtn" class="primary">Carregar</button></div>
    <div id="hmlImportMsg" class="msg hidden"></div>
-  </section>
- <div class="board">
-  <section class="col"><h2>ACEITAR <span id="cNew">0</span></h2><div id="new"></div></section>
-  <section class="col"><h2>EM PREPARO <span id="cPrep">0</span></h2><div id="prep"></div></section>
-  <section class="col"><h2>PRONTO <span id="cReady">0</span></h2><div id="ready"></div></section>
-  <section class="col"><h2>EM ROTA <span id="cRoute">0</span></h2><div id="route"></div></section>
-  <section class="col"><h2>FINALIZADOS <span id="cDone">0</span></h2><div id="done"></div></section>
- </div>
-</main>
+ </section>
 
-<div id="cancelModal" class="modal hidden">
- <div class="box">
-  <h2>Cancelar pedido <span id="cancelDisplay"></span></h2>
-  <p class="muted">Os motivos abaixo vieram diretamente do iFood para este pedido.</p>
-  <div id="reasons" class="reason-list"></div>
-  <div id="cancelMsg" class="msg hidden"></div>
-  <div class="actions" style="justify-content:flex-end">
-   <button onclick="closeCancel()">Voltar</button>
-   <button id="confirmCancel" class="danger">Confirmar cancelamento</button>
-  </div>
+ <div class="kds-board">
+  <section class="lane accept"><div class="lane-head">ACEITAR <span id="cNew" class="count">0</span></div><div id="new" class="lane-body"></div></section>
+  <section class="lane prep"><div class="lane-head">EM PREPARO <span id="cPrep" class="count">0</span></div><div id="prep" class="lane-body"></div></section>
+  <section class="lane ready"><div class="lane-head">PRONTO <span id="cReady" class="count">0</span></div><div id="ready" class="lane-body"></div></section>
+  <section class="lane route"><div class="lane-head">EM ROTA <span id="cRoute" class="count">0</span></div><div id="route" class="lane-body"></div></section>
+  <section class="lane done"><div class="lane-head">FINALIZADOS <span id="cDone" class="count">0</span></div><div id="done" class="lane-body"></div></section>
  </div>
 </div>
 
+<div id="cancelModal" class="modal hidden"><div class="box">
+ <h2>Cancelar pedido <span id="cancelDisplay"></span></h2>
+ <p style="color:#9aa0aa">Motivos retornados diretamente pelo iFood.</p>
+ <div id="reasons" class="reason-list"></div>
+ <div id="cancelMsg" class="msg hidden"></div>
+ <div class="actions two"><button onclick="closeCancel()">Voltar</button><button id="confirmCancel" class="danger">Confirmar cancelamento</button></div>
+</div></div>
+
 <script>
-let me=null, currentCancel=null, selectedReason=null;
+let me=null,currentCancel=null,selectedReason=null;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 async function api(path,opt){const r=await fetch(path,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.message||d.error||"Erro"),{data:d,status:r.status});return d}
@@ -74,42 +86,43 @@ function status(o){return String(o.status||"").toUpperCase()}
 function stage(o){
  const s=status(o);
  if(o.isClosed||["CANCELLED","CANCELED","CONCLUDED","COMPLETED","CON"].includes(s))return"done";
-
- // Pedido efetivamente despachado / em rota
  if(["DISPATCHED","DSP"].includes(s)||o.stage==="DELIVERY")return"route";
-
- // Pedido pronto aguardando saída
- if(["READY_TO_PICKUP","RTP","DISPATCH_REQUESTED"].includes(s)||o.stage==="READY")return"ready";
-
- // Pedido confirmado e sendo preparado
- if(["CONFIRMED","CFM","PREPARATION","PREPARATION_REQUESTED","PRS","DDCR"].includes(s)||o.stage==="PREPARATION")return"prep";
-
- // PLACED / CONFIRM_REQUESTED / novo
+ if(["READY_TO_PICKUP","RTP","READY_REQUESTED","DISPATCH_REQUESTED"].includes(s)||o.stage==="READY")return"ready";
+ if(["CONFIRMED","CFM","PREPARATION","PREPARATION_REQUESTED","PRS","DDCR","CONFIRM_REQUESTED"].includes(s)||o.stage==="PREPARATION")return"prep";
  return"new";
 }
-function friendlyStatus(o){
- const s=status(o), st=stage(o);
- if(st==="new")return "AGUARDANDO ACEITE";
- if(st==="prep")return "EM PREPARO";
- if(st==="ready")return "PRONTO";
- if(st==="route")return "PEDIDO DESPACHADO";
- if(s==="CANCELLED"||s==="CANCELED")return "CANCELADO";
- if(st==="done")return "CONCLUÍDO";
- return s||"PEDIDO";
+function label(o){
+ const s=status(o),st=stage(o);
+ if(s==="CANCELLED"||s==="CANCELED")return"CANCELADO";
+ if(st==="done")return"CONCLUÍDO";
+ if(st==="route")return"DESPACHADO";
+ if(st==="ready")return"PRONTO";
+ if(st==="prep")return"PREPARO";
+ return"NOVO";
 }
 function money(v){const n=Number(v?.orderAmount??v?.total??v??0);return isFinite(n)?n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}):"—"}
+function age(o){
+ const t=new Date(o.receivedAt||o.createdAt||o.updatedAt||Date.now()).getTime();
+ const m=Math.max(0,Math.floor((Date.now()-t)/60000));
+ return {m,text:m<1?"agora":`${m} min`,hot:m>=10};
+}
 function card(o){
- const items=(o.items||[]).slice(0,5).map(i=>`${i.quantity||1}x ${esc(i.name||i.description||"Item")}`).join("<br>")||"Itens não informados";
- const s=stage(o), closed=s==="done";
- return `<article class="order">
-  <div class="order-top"><div><small class="muted">iFood</small><h3>#${esc(o.displayId||o.id?.slice(0,8))}</h3></div><span class="status">${esc(friendlyStatus(o))}</span></div>
-  <div class="items">${items}</div><div class="total">${money(o.total)}</div>
-  <div class="actions">
-   ${s==="new"?`<button onclick="act('${o.id}','confirm')" class="primary">Aceitar</button>`:""}
-   ${s==="prep"?`<button onclick="act('${o.id}','ready')" class="primary">Marcar pronto</button>`:""}
-   ${s==="ready"?`<button onclick="act('${o.id}','dispatch')" class="primary">Despachar</button>`:""}
-   ${!closed?`<button onclick="openCancel('${o.id}','${esc(o.displayId||"")}')" class="danger">Cancelar pedido</button>`:""}
+ const a=age(o), s=stage(o);
+ const rawItems=(o.items||[]).slice(0,8);
+ const items=rawItems.length?rawItems.map(i=>`<div class="item"><div class="qty">${esc(i.quantity||1)}x</div><div class="item-name">${esc(i.name||i.description||"Item")}</div></div>`).join(""):`<div style="color:#8f959f;font-size:12px">Itens não informados</div>`;
+ const closed=s==="done";
+ const buttons=[];
+ if(s==="new")buttons.push(`<button class="primary" onclick="act('${o.id}','confirm')">ACEITAR AGORA</button>`);
+ if(s==="prep")buttons.push(`<button class="primary" onclick="act('${o.id}','ready')">MARCAR PRONTO</button>`);
+ if(s==="ready")buttons.push(`<button class="primary" onclick="act('${o.id}','dispatch')">DESPACHAR</button>`);
+ if(!closed)buttons.push(`<button class="danger" onclick="openCancel('${o.id}','${esc(o.displayId||"")}')">CANCELAR</button>`);
+ return `<article class="ticket ${a.hot&&!closed?"urgent":""}">
+  <div class="ticket-top">
+   <div><div class="ticket-id">#${esc(o.displayId||o.id?.slice(0,8))}</div><div class="ticket-time ${a.hot?"hot":""}">${a.text}</div></div>
+   <div class="ticket-status">${esc(label(o))}</div>
   </div>
+  <div class="ticket-body">${items}<div class="total-row"><div class="total">${money(o.total)}</div><div class="channel">iFood</div></div></div>
+  ${buttons.length?`<div class="actions ${buttons.length>1?"two":""}">${buttons.join("")}</div>`:""}
  </article>`;
 }
 async function load(){
@@ -117,118 +130,37 @@ async function load(){
   const list=await api("/api/orders");
   const g={new:[],prep:[],ready:[],route:[],done:[]};list.forEach(o=>g[stage(o)].push(o));
   for(const k of Object.keys(g))$("#"+k).innerHTML=g[k].map(card).join("")||`<div class="empty">Nenhum pedido</div>`;
-  cNew.textContent=g.new.length;
-  cPrep.textContent=g.prep.length;
-  cReady.textContent=g.ready.length;
-  cRoute.textContent=g.route.length;
-  cDone.textContent=g.done.length;
+  cNew.textContent=g.new.length;cPrep.textContent=g.prep.length;cReady.textContent=g.ready.length;cRoute.textContent=g.route.length;cDone.textContent=g.done.length;
  }catch(e){if(e.status===401)location.href="/login.html"}
 }
-async function act(id,action){
- try{await api(`/api/orders/${encodeURIComponent(id)}/${action}`,{method:"POST"});await load()}catch(e){alert("Erro: "+e.message)}
-}
+async function act(id,action){try{await api(`/api/orders/${encodeURIComponent(id)}/${action}`,{method:"POST"});await load()}catch(e){alert("Erro: "+e.message)}}
 async function openCancel(id,display){
- currentCancel=id;selectedReason=null;cancelDisplay.textContent=display?`#${display}`:"";
- reasons.innerHTML="Consultando motivos no iFood...";cancelMsg.className="msg hidden";cancelModal.classList.remove("hidden");
+ currentCancel=id;selectedReason=null;cancelDisplay.textContent=display?`#${display}`:"";reasons.innerHTML="Consultando motivos...";cancelMsg.className="msg hidden";cancelModal.classList.remove("hidden");
  try{
   const d=await api(`/api/orders/${encodeURIComponent(id)}/cancellation-reasons`);
-
-  if(!d.reasons?.length){
-   const raw=d?.diagnostic?.raw ?? null;
-   const diag={
-    endpoint:d?.diagnostic?.endpoint,
-    httpStatus:d?.diagnostic?.httpStatus,
-    rawType:d?.diagnostic?.rawType,
-    raw
-   };
-
-   reasons.innerHTML=`
-    <div class="empty" style="padding-bottom:10px">
-      O TurboFlow consultou o iFood, mas não conseguiu montar a lista de motivos.
-    </div>
-    <div style="font-weight:900;margin:8px 0">DIAGNÓSTICO DO RETORNO DO IFOOD</div>
-    <div class="debug">${esc(JSON.stringify(diag,null,2))}</div>
-   `;
-   return;
-  }
-
-  reasons.innerHTML=`
-   <div class="msg ok" style="margin:0 0 10px">Motivos recebidos do iFood: ${d.reasons.length}</div>
-   ${d.reasons.map(r=>`
-    <label class="reason">
-     <input type="radio" name="reason" value="${esc(r.code)}">
-     <b>${esc(r.code)}</b> — ${esc(r.description||"Motivo")}
-    </label>
-   `).join("")}
-  `;
-
+  if(!d.reasons?.length){reasons.innerHTML=`<div class="msg err">O iFood não retornou motivos válidos.</div>${d?.diagnostic?`<div class="debug">${esc(JSON.stringify(d.diagnostic,null,2))}</div>`:""}`;return}
+  reasons.innerHTML=d.reasons.map(r=>`<label class="reason"><input type="radio" name="reason" value="${esc(r.code)}"><b>${esc(r.code)}</b> — ${esc(r.description||"Motivo")}</label>`).join("");
   reasons.querySelectorAll('input[name="reason"]').forEach(x=>x.onchange=()=>selectedReason=x.value);
- }catch(e){
-  const diagnostic=e?.data?.diagnostic ? `\n\n${JSON.stringify(e.data.diagnostic,null,2)}` : "";
-  reasons.innerHTML=`<div class="msg err">Não foi possível consultar os motivos: ${esc(e.message)}</div><div class="debug">${esc(diagnostic)}</div>`;
- }
+ }catch(e){reasons.innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
 }
 function closeCancel(){cancelModal.classList.add("hidden");currentCancel=null;selectedReason=null}
 confirmCancel.onclick=async()=>{
  if(!selectedReason){cancelMsg.className="msg err";cancelMsg.textContent="Selecione um motivo.";return}
- if(!confirm("Confirmar solicitação de cancelamento deste pedido?"))return;
- try{
-  confirmCancel.disabled=true;cancelMsg.className="msg";cancelMsg.textContent="Enviando cancelamento...";
-  await api(`/api/orders/${encodeURIComponent(currentCancel)}/cancel`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:selectedReason})});
-  cancelMsg.className="msg ok";cancelMsg.textContent="Solicitação enviada ao iFood. O resultado chegará pelo polling.";
-  setTimeout(()=>{closeCancel();load()},1200);
- }catch(e){cancelMsg.className="msg err";cancelMsg.textContent=e.message}finally{confirmCancel.disabled=false}
+ try{confirmCancel.disabled=true;await api(`/api/orders/${encodeURIComponent(currentCancel)}/cancel`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:selectedReason})});cancelMsg.className="msg ok";cancelMsg.textContent="Cancelamento enviado ao iFood.";setTimeout(()=>{closeCancel();load()},900)}catch(e){cancelMsg.className="msg err";cancelMsg.textContent=e.message}finally{confirmCancel.disabled=false}
 }
 async function boot(){
- const d=await api("/api/auth/me");me=d.user;if(!me)return location.href="/login.html";
- if(me.role==="admin")adminBack.classList.remove("hidden");
-
+ const d=await api("/api/auth/me");me=d.user;if(!me)return location.href="/login.html";if(me.role==="admin")adminBack.classList.remove("hidden");
  try{
   const ctx=await api("/api/orders/context");
-  if(ctx.mode==="homologation"){
-    storeLine.textContent=ctx.merchantName||"Loja de teste iFood";
-    connection.textContent=ctx.authorized?"iFood HML: conectado":"iFood HML: não autorizado";
-    if(ctx.canImportHomologationOrder)hmlPanel.classList.remove("hidden");
-  }else{
-    storeLine.textContent=me.role==="admin"?"Modo administrador — visualizando operação recebida":(ctx.merchantName||me.storeName||"Minha loja");
-    connection.textContent=ctx.authorized?"iFood: conectado":"iFood: aguardando conexão";
-  }
- }catch{
-  storeLine.textContent=me.role==="admin"?"Modo administrador":"Minha loja";
-  connection.textContent="iFood: verificando";
- }
-
- load();setInterval(load,5000);
+  if(ctx.mode==="homologation"){storeLine.textContent=ctx.merchantName||"Loja de teste iFood";connection.textContent=ctx.authorized?"iFood HML: conectado":"iFood HML: não autorizado";connection.className="badge "+(ctx.authorized?"online":"warn");if(ctx.canImportHomologationOrder)hmlPanel.classList.remove("hidden")}
+  else{storeLine.textContent=ctx.merchantName||me.storeName||"Minha loja";connection.textContent=ctx.authorized?"iFood: conectado":"iFood: desconectado";connection.className="badge "+(ctx.authorized?"online":"warn")}
+ }catch{storeLine.textContent="Minha loja";connection.textContent="iFood: verificando"}
+ load();setInterval(load,2000);
 }
-
 hmlImportBtn.onclick=async()=>{
- const orderId=hmlOrderId.value.trim();
- const displayId=hmlDisplayId.value.trim();
- if(!orderId){
-  hmlImportMsg.className="msg err";
-  hmlImportMsg.textContent="Cole o UUID do pedido mostrado pelo iFood Developer.";
-  return;
- }
- hmlImportBtn.disabled=true;
- hmlImportMsg.className="msg";
- hmlImportMsg.textContent="Carregando pedido pela API de homologação...";
- try{
-  const d=await api("/api/orders/hml-import",{
-   method:"POST",
-   headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({orderId,displayId})
-  });
-  hmlImportMsg.className="msg ok";
-  hmlImportMsg.textContent=`Pedido #${d.order?.displayId||displayId||orderId.slice(0,8)} carregado.`;
-  await load();
- }catch(e){
-  hmlImportMsg.className="msg err";
-  hmlImportMsg.textContent=e.message;
- }finally{
-  hmlImportBtn.disabled=false;
- }
+ const orderId=hmlOrderId.value.trim(),displayId=hmlDisplayId.value.trim();if(!orderId)return;
+ hmlImportBtn.disabled=true;try{const d=await api("/api/orders/hml-import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderId,displayId})});hmlImportMsg.className="msg ok";hmlImportMsg.textContent=`Pedido #${d.order?.displayId||displayId} carregado.`;hmlImportMsg.classList.remove("hidden");await load()}catch(e){hmlImportMsg.className="msg err";hmlImportMsg.textContent=e.message;hmlImportMsg.classList.remove("hidden")}finally{hmlImportBtn.disabled=false}
 };
-
 async function logout(){await fetch("/api/auth/logout",{method:"POST"});location.href="/login.html"}
 boot();
 </script>

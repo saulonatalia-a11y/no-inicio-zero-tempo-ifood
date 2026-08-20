@@ -442,3 +442,14 @@ Mapeamento:
 - CONCLUDED / CANCELLED -> FINALIZADOS
 
 A interface mostra rótulos amigáveis como "PEDIDO DESPACHADO", "CONCLUÍDO" e "CANCELADO".
+
+## v6.0 — KDS + Produção iFood
+- Nova tela KDS em `/orders.html`, sem visual de lista tradicional.
+- Cinco colunas operacionais: Aceitar, Em preparo, Pronto, Em rota e Finalizados.
+- Cards grandes com número do pedido, tempo, itens e ações rápidas.
+- Aceite automático sem atraso adicional: 0 segundo após o evento chegar.
+- O polling do iFood permanece em 30 segundos, conforme documentação oficial.
+- Integração de produção usa Authorization Code do aplicativo Distribuído.
+- Tokens ficam somente no backend e são renovados automaticamente por refresh token.
+- Polling de produção usa o token de cada loja conectada e `x-polling-merchants`.
+- Ações de confirmar, preparo, pronto, despacho e cancelamento usam a autorização da própria loja.
