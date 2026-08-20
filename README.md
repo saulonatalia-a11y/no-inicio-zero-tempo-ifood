@@ -470,6 +470,7 @@ A integração agora salva e restaura:
 - Merchant ID e nome da loja
 - Access Token
 - Refresh Token
+- Deploy TurboFlow v6.3
 - Expiração do token
 - Estado conectado
 
