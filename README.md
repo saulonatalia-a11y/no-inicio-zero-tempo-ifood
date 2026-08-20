@@ -453,3 +453,9 @@ A interface mostra rótulos amigáveis como "PEDIDO DESPACHADO", "CONCLUÍDO" e 
 - Tokens ficam somente no backend e são renovados automaticamente por refresh token.
 - Polling de produção usa o token de cada loja conectada e `x-polling-merchants`.
 - Ações de confirmar, preparo, pronto, despacho e cancelamento usam a autorização da própria loja.
+
+## v6.2 — Correção de autenticação iFood Distribuído
+- Normaliza `IFOOD_CLIENT_ID` e `IFOOD_CLIENT_SECRET` removendo espaços, aspas e caracteres invisíveis.
+- `/oauth/userCode` usa somente `clientId`, conforme documentação oficial do iFood.
+- Adiciona diagnóstico seguro do Client ID (comprimento e formato UUID), sem expor credenciais.
+- Mantém o KDS e toda a lógica de pedidos da v6.1.

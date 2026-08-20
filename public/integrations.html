@@ -57,7 +57,13 @@ async function boot(){
   startBox.classList.add("hidden");codeBox.classList.add("hidden");connectedBox.classList.remove("hidden");
   merchantName.textContent=integration.merchantName||"Loja iFood";merchantId.textContent=integration.merchantId||"—";
  }else{
-  status.className="status off";status.textContent=d.appConfigured?"● Pronto para conectar":"● Configure IFOOD_CLIENT_ID e IFOOD_CLIENT_SECRET no Render";
+  const c=d.credentialDiagnostic||{};
+  status.className="status off";
+  status.textContent=d.appConfigured?"● Pronto para conectar":"● Credenciais de produção incompletas";
+  if(c.clientIdConfigured){
+    const extra=`Client ID: ${c.clientIdLength} caracteres | formato UUID: ${c.clientIdUuidFormat?"OK":"INVÁLIDO"}`;
+    showMsg(extra,!c.clientIdUuidFormat);
+  }
  }
 }
 async function start(){

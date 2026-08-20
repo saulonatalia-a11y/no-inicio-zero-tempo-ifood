@@ -370,9 +370,27 @@ function clearIfoodCustomerConnection(user) {
 
 
 
+function cleanEnvCredential(value) {
+  return String(value ?? "")
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .trim();
+}
+
+function productionIfoodClientId() {
+  return cleanEnvCredential(process.env.IFOOD_CLIENT_ID);
+}
+
+function productionIfoodClientSecret() {
+  return cleanEnvCredential(process.env.IFOOD_CLIENT_SECRET);
+}
+
 function formEncode(data) {
   return new URLSearchParams(
-    Object.entries(data).filter(([,v]) => v !== undefined && v !== null && v !== "")
+    Object.entries(data)
+      .filter(([,v]) => v !== undefined && v !== null && v !== "")
+      .map(([k,v]) => [k, typeof v === "string" ? v.trim() : v])
   ).toString();
 }
 
@@ -417,8 +435,8 @@ async function refreshDistributedIfoodToken(user) {
   }
   const payload = await ifoodAuthForm("/oauth/token", {
     grantType: "refresh_token",
-    clientId: process.env.IFOOD_CLIENT_ID,
-    clientSecret: process.env.IFOOD_CLIENT_SECRET,
+    clientId: productionIfoodClientId(),
+    clientSecret: productionIfoodClientSecret(),
     refreshToken: user.ifoodRefreshToken
   });
 
@@ -731,8 +749,8 @@ async function getToken() {
   const now = Date.now();
   if (tokenCache.accessToken && now < tokenCache.expiresAt - 60000) return tokenCache.accessToken;
 
-  const clientId = process.env.IFOOD_CLIENT_ID;
-  const clientSecret = process.env.IFOOD_CLIENT_SECRET;
+  const clientId = productionIfoodClientId();
+  const clientSecret = productionIfoodClientSecret();
   if (!clientId || !clientSecret) throw new Error("Preencha IFOOD_CLIENT_ID e IFOOD_CLIENT_SECRET no arquivo .env");
 
   const body = new URLSearchParams({
@@ -797,7 +815,7 @@ function cleanupWebhookIds() {
 }
 
 function validateWebhookSignature(rawBody, receivedSignature) {
-  const secret = process.env.IFOOD_CLIENT_SECRET;
+  const secret = productionIfoodClientSecret();
   if (!secret || !receivedSignature) return false;
 
   const expectedHex = crypto
@@ -1413,10 +1431,17 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/integrations/ifood") {
     const user = requireActiveCustomer(req, res);
     if (!user) return;
+    const cid = productionIfoodClientId();
     return json(res, 200, {
       ok: true,
       integration: ifoodCustomerConnection(user),
-      appConfigured: Boolean(process.env.IFOOD_CLIENT_ID && process.env.IFOOD_CLIENT_SECRET)
+      appConfigured: Boolean(cid && productionIfoodClientSecret()),
+      credentialDiagnostic: {
+        clientIdConfigured: Boolean(cid),
+        clientIdLength: cid.length,
+        clientIdUuidFormat: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cid),
+        clientSecretConfigured: Boolean(productionIfoodClientSecret())
+      }
     });
   }
 
@@ -1448,14 +1473,18 @@ async function handleApi(req, res, url) {
     const user = requireActiveCustomer(req, res);
     if (!user) return;
 
-    if (!process.env.IFOOD_CLIENT_ID || !process.env.IFOOD_CLIENT_SECRET) {
-      return json(res, 503, { ok: false, error: "ifood_app_not_configured" });
+    if (!productionIfoodClientId()) {
+      return json(res, 503, {
+        ok: false,
+        error: "ifood_client_id_not_configured",
+        message: "IFOOD_CLIENT_ID não está configurado no servidor."
+      });
     }
 
     try {
       // O endpoint oficial exige apenas clientId para gerar o userCode.
       const payload = await ifoodAuthForm("/oauth/userCode", {
-        clientId: process.env.IFOOD_CLIENT_ID
+        clientId: productionIfoodClientId()
       });
 
       const userCode = String(payload.userCode || "").trim();
@@ -1497,6 +1526,22 @@ async function handleApi(req, res, url) {
 
       const rawMessage = String(err.message || "");
       const grantNotAllowed = /grant type not authorized for client/i.test(rawMessage);
+      const invalidClientId = /clientid is invalid/i.test(rawMessage);
+      const configuredClientId = productionIfoodClientId();
+      const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(configuredClientId);
+
+      if (invalidClientId) {
+        log("ifood-auth", `clientId rejeitado pelo iFood; comprimento=${configuredClientId.length}; formatoUUID=${uuidLike ? "SIM" : "NÃO"}`);
+        return json(res, 400, {
+          ok: false,
+          error: "ifood_client_id_invalid",
+          message: "O iFood rejeitou o Client ID. A v6.2 já remove espaços, aspas e quebras ocultas automaticamente. Confira se o IFOOD_CLIENT_ID é o da credencial do aplicativo TurboFlow Distribuído aprovado.",
+          diagnostic: {
+            clientIdLength: configuredClientId.length,
+            uuidFormat: uuidLike
+          }
+        });
+      }
 
       if (grantNotAllowed) {
         return json(res, 409, {
@@ -1542,8 +1587,8 @@ async function handleApi(req, res, url) {
     try {
       const tokenPayload = await ifoodAuthForm("/oauth/token", {
         grantType: "authorization_code",
-        clientId: process.env.IFOOD_CLIENT_ID,
-        clientSecret: process.env.IFOOD_CLIENT_SECRET,
+        clientId: productionIfoodClientId(),
+        clientSecret: productionIfoodClientSecret(),
         authorizationCode,
         authorizationCodeVerifier: user.ifoodAuthorizationCodeVerifier
       });
@@ -1864,7 +1909,7 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/status") {
     return json(res, 200, {
-      configured: Boolean(process.env.IFOOD_CLIENT_ID && process.env.IFOOD_CLIENT_SECRET),
+      configured: Boolean(productionIfoodClientId() && productionIfoodClientSecret()),
       polling: isPolling,
       autoConfirm: settings.autoConfirm,
       autoStartPreparation: settings.autoStartPreparation,
@@ -2219,8 +2264,8 @@ if (req.method === "GET" && url.pathname === "/api/orders") {
       ok: true,
       pollingMerchants: homologationMerchantIds(),
       pollingIntervalSeconds: 30,
-      clientIdConfigured: Boolean(process.env.IFOOD_CLIENT_ID),
-      clientSecretConfigured: Boolean(process.env.IFOOD_CLIENT_SECRET)
+      clientIdConfigured: Boolean(productionIfoodClientId()),
+      clientSecretConfigured: Boolean(productionIfoodClientSecret())
     });
   }
 
