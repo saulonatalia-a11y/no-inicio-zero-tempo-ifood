@@ -597,7 +597,16 @@ async function ifoodUserRequest(user, pathname, options = {}) {
   catch { data = { raw: text }; }
 
   if (!response.ok) {
-    const err = new Error(data?.message || data?.error || `iFood HTTP ${response.status}`);
+    const rawMessage = data?.message ?? data?.error_description ?? data?.error ?? null;
+    let readable = "";
+    if (typeof rawMessage === "string") readable = rawMessage;
+    else if (rawMessage && typeof rawMessage === "object") {
+      readable = rawMessage.message || rawMessage.description || rawMessage.detail || rawMessage.title || JSON.stringify(rawMessage);
+    }
+    if (!readable) {
+      try { readable = JSON.stringify(data); } catch {}
+    }
+    const err = new Error(readable || `iFood HTTP ${response.status}`);
     err.status = response.status;
     err.payload = data;
     throw err;
@@ -1917,14 +1926,15 @@ async function handleApi(req, res, url) {
         }
       });
     } catch (err) {
-      log("ifood-auth", `Erro ao verificar merchant: HTTP ${err.status || "?"} | ${err.message}`);
-      return json(res, 502, {
+      const payloadText = (() => { try { return JSON.stringify(err.payload || null); } catch { return String(err.payload || ""); } })();
+      log("ifood-auth", `Erro ao verificar merchant: HTTP ${err.status || "?"} | ${err.message} | payload=${payloadText}`);
+      return json(res, err.status && err.status >= 400 && err.status < 600 ? err.status : 502, {
         ok: false,
         error: "ifood_check_failed",
-        message: err.message,
+        message: err.message || `iFood HTTP ${err.status || 502}`,
         diagnostic: {
           token: user.ifoodAccessToken ? "PRESENTE" : "AUSENTE",
-          endpoint: "/merchant/v1.0/merchants",
+          endpoint: manualMerchantId ? `/merchant/v1.0/merchants/${manualMerchantId}` : "/merchant/v1.0/merchants",
           httpStatus: err.status || null,
           ifoodResponse: err.payload || null
         }

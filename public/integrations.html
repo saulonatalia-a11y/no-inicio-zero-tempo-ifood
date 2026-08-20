@@ -54,7 +54,18 @@ input{width:100%;padding:13px;border:1px solid #cfd4dc;border-radius:9px;font-si
 </main>
 <script>
 let integration={},verificationUrl="";
-async function api(path,opt){const r=await fetch(path,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.message||d.error||"Erro");return d}
+async function api(path,opt){
+ const r=await fetch(path,opt);const d=await r.json().catch(()=>({}));
+ if(!r.ok){
+  const pick=(v)=>{if(typeof v==="string")return v;if(v&&typeof v==="object")return v.message||v.description||v.detail||v.title||JSON.stringify(v);return ""};
+  const diag=d.diagnostic||{};
+  const base=pick(d.message)||pick(d.error)||`HTTP ${r.status}`;
+  const extra=diag.httpStatus?` | iFood HTTP ${diag.httpStatus}`:"";
+  const raw=diag.ifoodResponse?` | Resposta: ${pick(diag.ifoodResponse)||JSON.stringify(diag.ifoodResponse)}`:"";
+  throw new Error(base+extra+raw);
+ }
+ return d
+}
 function showMsg(t,err=false){msg.textContent=t;msg.className="msg "+(err?"bad":"good");msg.classList.remove("hidden")}
 async function boot(){
  const me=await api("/api/auth/me");if(!me.user)return location.href="/login.html";
