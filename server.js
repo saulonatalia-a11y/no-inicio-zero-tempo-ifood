@@ -605,12 +605,37 @@ async function ifoodUserRequest(user, pathname, options = {}) {
   return { data, status: response.status };
 }
 
-async function listUserIfoodMerchants(user) {
-  const { data } = await ifoodUserRequest(user, "/merchant/v1.0/merchants");
+function normalizeIfoodMerchants(data) {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.merchants)) return data.merchants;
   if (Array.isArray(data?.data)) return data.data;
   return [];
+}
+
+async function inspectUserIfoodMerchants(user) {
+  const { data, status } = await ifoodUserRequest(user, "/merchant/v1.0/merchants");
+  const merchants = normalizeIfoodMerchants(data);
+  return {
+    merchants,
+    diagnostic: {
+      token: "OK",
+      endpoint: "/merchant/v1.0/merchants",
+      httpStatus: status,
+      merchantCount: merchants.length,
+      responseShape: Array.isArray(data)
+        ? "array"
+        : Array.isArray(data?.merchants)
+          ? "merchants"
+          : Array.isArray(data?.data)
+            ? "data"
+            : typeof data
+    }
+  };
+}
+
+async function listUserIfoodMerchants(user) {
+  const result = await inspectUserIfoodMerchants(user);
+  return result.merchants;
 }
 
 
@@ -1809,9 +1834,17 @@ async function handleApi(req, res, url) {
     }
 
     try {
-      const merchants = await listUserIfoodMerchants(user);
+      const merchantResult = await inspectUserIfoodMerchants(user);
+      const merchants = merchantResult.merchants;
+      log("ifood-auth", `Verificação merchant: HTTP ${merchantResult.diagnostic.httpStatus} | lojas=${merchants.length} | formato=${merchantResult.diagnostic.responseShape}`);
       if (!merchants.length) {
-        return json(res, 200, { ok: true, connected: false, waiting: true });
+        return json(res, 200, {
+          ok: true,
+          connected: false,
+          waiting: true,
+          diagnostic: merchantResult.diagnostic,
+          message: `Token OK | GET /merchant/v1.0/merchants: HTTP ${merchantResult.diagnostic.httpStatus} | Lojas encontradas: 0`
+        });
       }
 
       const selected = merchants[0];
@@ -1828,13 +1861,25 @@ async function handleApi(req, res, url) {
       return json(res, 200, {
         ok: true,
         connected: true,
-        integration: ifoodCustomerConnection(user)
+        integration: ifoodCustomerConnection(user),
+        diagnostic: {
+          ...merchantResult.diagnostic,
+          selectedMerchantId: user.ifoodMerchantId,
+          selectedMerchantName: user.ifoodMerchantName
+        }
       });
     } catch (err) {
+      log("ifood-auth", `Erro ao verificar merchant: HTTP ${err.status || "?"} | ${err.message}`);
       return json(res, 502, {
         ok: false,
         error: "ifood_check_failed",
-        message: err.message
+        message: err.message,
+        diagnostic: {
+          token: user.ifoodAccessToken ? "PRESENTE" : "AUSENTE",
+          endpoint: "/merchant/v1.0/merchants",
+          httpStatus: err.status || null,
+          ifoodResponse: err.payload || null
+        }
       });
     }
   }

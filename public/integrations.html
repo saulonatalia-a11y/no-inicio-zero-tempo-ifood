@@ -101,6 +101,9 @@ async function checkMerchant(){
    setTimeout(()=>location.reload(),500);
   }else if(d.waiting){
    status.className="status waiting";status.textContent="● Autorizado — aguardando loja";
+   const x=d.diagnostic||{};
+   const detail=d.message||`Token: ${x.token||"OK"} | Consulta merchants: ${x.httpStatus||"?"} | Lojas encontradas: ${x.merchantCount??0}`;
+   showMsg(detail,false);
   }
  }catch(e){
   // 409 aqui só significa que ainda não há autorização pendente restaurável.
