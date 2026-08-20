@@ -19,27 +19,98 @@ button.primary{background:var(--yellow);border-color:var(--yellow);color:#111}.d
 .badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.badge{background:#181a1e;border:1px solid var(--line);padding:8px 11px;border-radius:999px;font-size:12px;font-weight:900}
 .badge.online{color:#7df0a1}.badge.warn{color:#ffd36d}
 .hml-panel{background:#332c10;border:1px solid #685a19;border-radius:12px;padding:12px;margin-bottom:12px}.hml-row{display:flex;gap:8px;margin-top:9px}.hml-row input{flex:1;background:#15171a;color:#fff;border:1px solid #484c55;border-radius:8px;padding:10px}
-.kds-board{display:grid;grid-template-columns:1.08fr 1.08fr 1.08fr 1.08fr .86fr;gap:10px;height:calc(100vh - 132px);min-height:560px}
-.lane{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-width:0;overflow:hidden}
-.lane-head{padding:11px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-weight:950;font-size:13px;letter-spacing:.5px}
+.kds-board{
+display:grid;
+grid-template-columns:repeat(5,minmax(250px,1fr));
+gap:12px;
+align-items:start;
+overflow-x:auto;
+padding-bottom:10px
+}
+.lane{
+background:transparent;
+border:0;
+border-radius:0;
+display:flex;
+flex-direction:column;
+min-width:250px;
+overflow:visible
+}
+.lane-head{
+padding:10px 8px;
+border:0;
+display:flex;
+align-items:center;
+justify-content:space-between;
+font-weight:950;
+font-size:14px;
+letter-spacing:.5px;
+background:#17191d;
+border-radius:10px;
+margin-bottom:8px
+}
 .lane-head .count{background:#30343c;border-radius:999px;padding:3px 8px}
 .lane.accept .lane-head{border-top:3px solid var(--yellow)}.lane.prep .lane-head{border-top:3px solid var(--orange)}.lane.ready .lane-head{border-top:3px solid var(--green)}.lane.route .lane-head{border-top:3px solid var(--blue)}.lane.done .lane-head{border-top:3px solid #71717a}
-.lane-body{padding:8px;overflow:auto;flex:1}
-.ticket{background:var(--panel2);border:1px solid #343842;border-radius:10px;margin-bottom:8px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.18)}
+.lane-body{
+display:grid;
+grid-template-columns:repeat(2,minmax(0,1fr));
+gap:8px;
+padding:0;
+overflow:visible
+}
+.ticket{
+background:var(--panel2);
+border:1px solid #343842;
+border-radius:12px;
+margin:0;
+overflow:hidden;
+box-shadow:0 3px 10px rgba(0,0,0,.18);
+aspect-ratio:1/1;
+display:flex;
+flex-direction:column;
+min-height:0
+}
 .ticket.urgent{border-color:#9b313a;box-shadow:0 0 0 1px rgba(255,77,94,.18)}
-.ticket-top{padding:10px 10px 8px;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #31343b}
-.ticket-id{font-size:24px;font-weight:950;line-height:1}.ticket-time{font-size:12px;font-weight:900;color:#d7dae0}.ticket-time.hot{color:#ff6b77}
+.ticket-top{
+padding:9px;
+display:flex;
+justify-content:space-between;
+gap:6px;
+border-bottom:1px solid #31343b
+}
+.ticket-id{font-size:21px;font-weight:950;line-height:1}
+.ticket-time{font-size:11px;font-weight:900;color:#d7dae0;margin-top:4px}
+.ticket-time.hot{color:#ff6b77}
 .ticket-status{font-size:10px;font-weight:950;padding:4px 6px;border-radius:999px;background:#333740;color:#d9dce1;white-space:nowrap}
-.ticket-body{padding:9px 10px}.item{display:flex;gap:7px;line-height:1.25;margin:5px 0;font-size:13px}.qty{font-size:14px;font-weight:950;color:var(--yellow);min-width:22px}.item-name{font-weight:800}
+.ticket-body{
+padding:8px 9px;
+flex:1;
+overflow:auto
+}
+.item{display:flex;gap:6px;line-height:1.2;margin:4px 0;font-size:12px}
+.qty{font-size:13px;font-weight:950;color:var(--yellow);min-width:20px}
+.item-name{font-weight:800}
 .total-row{display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #3b3f47;margin-top:8px;padding-top:8px}.total{font-size:16px;font-weight:950}.channel{font-size:10px;color:var(--muted)}
-.actions{display:grid;grid-template-columns:1fr;gap:6px;padding:0 10px 10px}.actions.two{grid-template-columns:1fr 1fr}.actions button{width:100%;padding:9px 8px;font-size:12px}
+.actions{
+display:grid;
+grid-template-columns:1fr;
+gap:5px;
+padding:0 8px 8px
+}
+.actions.two{grid-template-columns:1fr 1fr}
+.actions button{width:100%;padding:8px 6px;font-size:11px}
 .empty{height:100%;display:grid;place-items:center;color:#646a74;font-weight:800;text-align:center;padding:20px}
 .msg{padding:9px;border-radius:8px;margin-top:8px;background:#252930}.ok{background:#153322;color:#7df0a1}.err{background:#3a191e;color:#ff9aa3}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.68);display:grid;place-items:center;padding:16px;z-index:99}.hidden{display:none!important}.box{background:#1b1d21;border:1px solid #3b3f47;color:#fff;border-radius:14px;padding:18px;max-width:560px;width:100%}.box h2{margin-top:0}
 .reason-list{display:grid;gap:7px;max-height:360px;overflow:auto;margin:12px 0}.reason{border:1px solid #3b3f47;background:#23262c;border-radius:9px;padding:10px;cursor:pointer}.reason input{margin-right:8px}
 .debug{background:#090a0c;color:#d5d8dd;padding:10px;border-radius:8px;font:11px monospace;white-space:pre-wrap;max-height:220px;overflow:auto}
-@media(max-width:1200px){.kds-board{grid-template-columns:repeat(3,1fr);height:auto}.lane{min-height:520px}}
-@media(max-width:760px){.kds-board{grid-template-columns:1fr}.lane{min-height:420px}.kds-head{align-items:flex-start;flex-direction:column}}
+@media(max-width:1500px){
+ .kds-board{grid-template-columns:repeat(5,250px)}
+}
+@media(max-width:900px){
+ .kds-board{grid-template-columns:repeat(5,240px)}
+ .lane-body{grid-template-columns:repeat(2,112px)}
+}.lane{min-height:420px}.kds-head{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
@@ -50,7 +121,7 @@ button.primary{background:var(--yellow);border-color:var(--yellow);color:#111}.d
 
 <div class="kds-wrap">
  <div class="kds-head">
-  <div class="store-title"><h1 id="storeTitle">Pedidos iFood</h1><div id="storeLine" class="sub">Carregando loja...</div></div>
+  <div class="store-title"><h1 id="storeTitle">KDS de Pedidos</h1><div id="storeLine" class="sub">Pedidos em cartões quadrados por etapa</div></div>
   <div class="badges"><div class="badge">Tela: tempo real</div><div class="badge">Polling iFood: 30s</div><div id="connection" class="badge warn">iFood: verificando</div></div>
  </div>
 
