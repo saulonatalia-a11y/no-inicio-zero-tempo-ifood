@@ -2622,3 +2622,5 @@ server.listen(PORT, () => {
 // Polling exclusivo da homologação distribuída.
 setInterval(pollHmlEvents, 30000);
 setTimeout(pollHmlEvents, 5000);
+
+deploy-test-20260820
